@@ -10,6 +10,7 @@ export default function AnomalyForm() {
     const [error, setError] = useState('');
     const fileInputRef = useRef(null);
     const [teachersList, setTeachersList] = useState([]);
+    const [subjectsCatalog, setSubjectsCatalog] = useState([]);
 
     const [formData, setFormData] = useState({
         card_number: '',
@@ -17,6 +18,7 @@ export default function AnomalyForm() {
         placed_by: '',
         group_name: '',
         course: '',
+        subject: '',
         sector: '',
         teacher_responsible: '',
         element: '',
@@ -29,7 +31,11 @@ export default function AnomalyForm() {
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
-                // Fetch teachers
+                // 1. Fetch subjects
+                const { data: subData } = await supabase.from('subjects_catalog').select('*').order('name');
+                if (subData) setSubjectsCatalog(subData);
+
+                // 2. Fetch teachers
                 const { data: roleData } = await supabase
                     .from('user_roles')
                     .select('id')
@@ -44,7 +50,7 @@ export default function AnomalyForm() {
                     if (profData) setTeachersList(profData);
                 }
             } catch (err) {
-                console.error('Error fetching teachers:', err);
+                console.error('Error fetching initial form data:', err);
             }
         };
 
@@ -61,8 +67,22 @@ export default function AnomalyForm() {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => {
+            const newData = { ...prev, [name]: value };
+            // Auto-reset subject if course changes and invalidates old subject
+            if (name === 'course') {
+                newData.subject = '';
+            }
+            return newData;
+        });
     };
+
+    const filteredSubjects = subjectsCatalog.filter(sub => {
+        if (!formData.course) return true;
+        const year = parseInt(formData.course);
+        if (year <= 3) return sub.level === 'Básico';
+        return sub.level === 'Superior';
+    });
 
     const handleFileChange = (e) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -115,7 +135,7 @@ export default function AnomalyForm() {
                     course: parseInt(formData.course) || 1,
                     sector: formData.sector,
                     teacher_responsible: formData.teacher_responsible,
-                    subject: 'ANOMALIA', // MUST be ANOMALIA to be fetched in Anomaly Dashboard
+                    subject: formData.subject || 'ANOMALIA',
                     element: formData.element,
                     problem_description: formData.problem_description,
                     suggestion_type: 'R- Reparar', // default type
@@ -220,17 +240,6 @@ export default function AnomalyForm() {
                                     </label>
                                     <input type="text" name="placed_by" value={formData.placed_by} onChange={handleChange} required placeholder="Nombre completo o correo electrónico de quien reporta la falla" className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-all placeholder:text-surface-hover shadow-inner" />
                                 </div>
-                            </div>
-                        </section>
-
-                        {/* Location Section */}
-                        <section className="space-y-6">
-                            <div className="flex items-center gap-3 border-b border-color/40 pb-2 mb-6">
-                                <span className="bg-accent/20 text-accent w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-accent/30">2</span>
-                                <h3 className="text-lg font-bold text-[var(--text-primary)] uppercase tracking-wider">Ubicación y Sector</h3>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2 relative">
                                     <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
                                         Grupo / Especialidad
@@ -253,6 +262,31 @@ export default function AnomalyForm() {
                                     </select>
                                     <div className="absolute top-[34px] right-4 pointer-events-none text-tertiary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
                                 </div>
+                                <div className="md:col-span-2 space-y-2 relative">
+                                    <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
+                                        Asignatura / Materia (Opcional)
+                                    </label>
+                                    <select name="subject" value={formData.subject} onChange={handleChange} className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-all appearance-none cursor-pointer shadow-inner pr-10">
+                                        <option value="" className="text-tertiary bg-surface">Seleccionar asignatura (Opcional)...</option>
+                                        {filteredSubjects.map(sub => (
+                                            <option key={sub.id} value={sub.name} className="bg-surface text-[var(--text-primary)]">
+                                                {sub.abbreviation ? `${sub.abbreviation} - ` : ''}{sub.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute top-[34px] right-4 pointer-events-none text-tertiary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* Location Section */}
+                        <section className="space-y-6">
+                            <div className="flex items-center gap-3 border-b border-color/40 pb-2 mb-6">
+                                <span className="bg-accent/20 text-accent w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-accent/30">2</span>
+                                <h3 className="text-lg font-bold text-[var(--text-primary)] uppercase tracking-wider">Ubicación y Sector</h3>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="md:col-span-2 space-y-2 relative">
                                     <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
                                         Sector Físico / Aula / Taller <span className="text-error">*</span>

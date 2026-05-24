@@ -95,7 +95,7 @@ export default function AnomalyDashboard() {
                     *,
                     assignee:responsible_id (first_name, last_name)
                 `)
-                .eq('subject', 'ANOMALIA')
+                .or('subject.eq.ANOMALIA,card_number.ilike.AN-%')
                 .order('created_at', { ascending: false });
 
             // If it's a teacher, only show their assigned cards
@@ -304,7 +304,7 @@ export default function AnomalyDashboard() {
                 const { data: existingCards, error: fetchErr } = await supabase
                     .from('red_cards')
                     .select('id, card_number')
-                    .eq('subject', 'ANOMALIA');
+                    .or('subject.eq.ANOMALIA,card_number.ilike.AN-%');
 
                 if (fetchErr) throw fetchErr;
 

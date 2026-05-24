@@ -68,6 +68,7 @@ export default function RedCardDashboard() {
                     assignee:responsible_id (first_name, last_name)
                 `)
                 .neq('subject', 'ANOMALIA')
+                .not('card_number', 'ilike', 'AN-%')
                 .order('created_at', { ascending: false });
 
             // If it's a teacher, only show their assigned cards

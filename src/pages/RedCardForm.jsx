@@ -33,8 +33,8 @@ export default function RedCardForm() {
                         .order('last_name');
                     if (profData) setTeachersList(profData);
                 }
-            } catch (err) { 
-                console.error('Error fetching initial form data:', err); 
+            } catch (err) {
+                console.error('Error fetching initial form data:', err);
             }
         };
 
@@ -133,7 +133,7 @@ export default function RedCardForm() {
                     course: parseInt(formData.course) || null,
                     sector: formData.sector,
                     teacher_responsible: formData.teacher_responsible,
-                    subject: formData.subject,
+                    subject: formData.subject || null,
                     element: formData.element,
                     problem_description: formData.problem_description,
                     suggestion_type: formData.suggestion_type,
@@ -143,7 +143,7 @@ export default function RedCardForm() {
                 }]);
 
             if (insertError) throw insertError;
- 
+
             // Trigger a global/coordination notification for all coordinators & managers
             await createNotification(
                 null,
@@ -192,7 +192,7 @@ export default function RedCardForm() {
                         </div>
                         <div>
                             <h1 className="text-3xl md:text-4xl font-extrabold text-[var(--text-primary)] tracking-tight mb-2">Registro de Tarjeta Roja</h1>
-                            <p className="text-secondary font-medium">Programa 5S Institucional • Reporte oficial de anomalías</p>
+                            <p className="text-secondary font-medium">Programa 5S Institucional • Reporte oficial</p>
                         </div>
                     </div>
 
@@ -237,6 +237,20 @@ export default function RedCardForm() {
                                         Nombre del Reportante (Colocó) <span className="text-error">*</span>
                                     </label>
                                     <input type="text" name="placed_by" value={formData.placed_by} onChange={handleChange} required placeholder="Nombre completo de quien identificó el problema" className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all placeholder:text-surface-hover shadow-inner" />
+                                </div>
+                                <div className="md:col-span-2 space-y-2 relative">
+                                    <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
+                                        Asignatura / Materia (Opcional)
+                                    </label>
+                                    <select name="subject" value={formData.subject} onChange={handleChange} className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all appearance-none cursor-pointer shadow-inner pr-10">
+                                        <option value="" className="text-tertiary bg-surface">Seleccionar asignatura (Opcional)...</option>
+                                        {filteredSubjects.map(sub => (
+                                            <option key={sub.id} value={sub.name} className="bg-surface text-[var(--text-primary)]">
+                                                {sub.abbreviation ? `${sub.abbreviation} - ` : ''}{sub.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute top-[34px] right-4 pointer-events-none text-tertiary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
                                 </div>
                             </div>
                         </section>
@@ -311,20 +325,6 @@ export default function RedCardForm() {
                                         {teachersList.map(t => (
                                             <option key={t.id} value={`${t.last_name}, ${t.first_name}`} className="bg-surface text-[var(--text-primary)]">
                                                 {t.last_name}, {t.first_name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <div className="absolute top-[34px] right-4 pointer-events-none text-tertiary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
-                                </div>
-                                <div className="space-y-2 relative">
-                                    <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
-                                        Asignatura / Materia <span className="text-error">*</span>
-                                    </label>
-                                    <select name="subject" value={formData.subject} onChange={handleChange} required className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all appearance-none cursor-pointer shadow-inner pr-10">
-                                        <option value="" className="text-tertiary bg-surface">Seleccione asignatura...</option>
-                                        {filteredSubjects.map(sub => (
-                                            <option key={sub.id} value={sub.name} className="bg-surface text-[var(--text-primary)]">
-                                                {sub.abbreviation ? `${sub.abbreviation} - ` : ''}{sub.name}
                                             </option>
                                         ))}
                                     </select>

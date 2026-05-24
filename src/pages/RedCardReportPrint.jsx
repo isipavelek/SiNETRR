@@ -42,10 +42,12 @@ export default function RedCardReportPrint() {
                     query = query.eq('sector', sectorParam);
                 }
 
-                if (subjectParam) {
-                    query = query.eq('subject', subjectParam);
+                if (subjectParam === 'ANOMALIA') {
+                    query = query.or('subject.eq.ANOMALIA,card_number.ilike.AN-%');
+                } else if (subjectParam) {
+                    query = query.eq('subject', subjectParam).not('card_number', 'ilike', 'AN-%');
                 } else {
-                    query = query.neq('subject', 'ANOMALIA');
+                    query = query.neq('subject', 'ANOMALIA').not('card_number', 'ilike', 'AN-%');
                 }
 
                 const { data, error } = await query.order('date', { ascending: false });
