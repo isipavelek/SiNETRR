@@ -178,20 +178,38 @@ export default function Login() {
                         Otras Acciones
                     </div>
 
-                    <div className="bg-warning/5 rounded-xl p-5 border border-warning/20 transition-all hover:bg-warning/10 hover:border-warning/30 group">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-error/20 rounded-lg text-error group-hover:scale-110 transition-transform">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                    <div className="flex flex-col gap-4">
+                        <div className="bg-warning/5 rounded-xl p-5 border border-warning/20 transition-all hover:bg-warning/10 hover:border-warning/30 group">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-error/20 rounded-lg text-error group-hover:scale-110 transition-transform">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                </div>
+                                <h3 className="font-bold text-[15px] text-[var(--text-primary)]">Reportar Tarjeta Roja (5S)</h3>
                             </div>
-                            <h3 className="font-bold text-[15px] text-[var(--text-primary)]">Reportar Tarjeta Roja (5S)</h3>
+                            <p className="text-sm text-secondary mb-4 leading-relaxed pl-12 pr-2">
+                                Si detectaste una anomalía en un aula o taller, podés reportarla rápidamente de forma pública o anónima.
+                            </p>
+                            <Link to="/tarjeta-roja" className="btn w-full bg-error text-[var(--text-primary)] hover:bg-red-600 border-none shadow-sm hover:shadow-md ml-auto flex items-center justify-center gap-2">
+                                Crear Reporte 5S
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
+                            </Link>
                         </div>
-                        <p className="text-sm text-secondary mb-4 leading-relaxed pl-12 pr-2">
-                            Si detectaste una anomalía en un aula o taller, podés reportarla rápidamente de forma pública o anónima.
-                        </p>
-                        <Link to="/tarjeta-roja" className="btn w-full bg-error text-[var(--text-primary)] hover:bg-red-600 border-none shadow-sm hover:shadow-md ml-auto flex items-center justify-center gap-2">
-                            Crear Reporte 5S
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
-                        </Link>
+
+                        <div className="bg-accent/5 rounded-xl p-5 border border-accent/20 transition-all hover:bg-accent/10 hover:border-accent/30 group">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-accent/20 rounded-lg text-accent group-hover:scale-110 transition-transform">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                </div>
+                                <h3 className="font-bold text-[15px] text-[var(--text-primary)]">Reportar Anomalía de Taller / Equipos</h3>
+                            </div>
+                            <p className="text-sm text-secondary mb-4 leading-relaxed pl-12 pr-2">
+                                Si identificaste una falla o desperfecto técnico en una máquina o herramienta, emití un aviso directo al personal.
+                            </p>
+                            <Link to="/reportar-anomalia" className="btn w-full bg-accent text-[var(--text-primary)] hover:bg-accent/80 border-none shadow-sm hover:shadow-md ml-auto flex items-center justify-center gap-2">
+                                Reportar Anomalía
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -3,6 +3,7 @@ import { useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import RedCardForm from './pages/RedCardForm';
+import AnomalyForm from './pages/AnomalyForm';
 import RedCardReportPrint from './pages/RedCardReportPrint';
 
 import { useEffect } from 'react';
@@ -34,6 +35,7 @@ function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/tarjeta-roja" element={<RedCardForm />} />
+      <Route path="/reportar-anomalia" element={<AnomalyForm />} />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route
         path="/dashboard"
