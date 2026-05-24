@@ -10,15 +10,43 @@ export default function RedCardForm() {
     const [error, setError] = useState('');
     const fileInputRef = useRef(null);
     const [subjectsCatalog, setSubjectsCatalog] = useState([]);
+    const [teachersList, setTeachersList] = useState([]);
 
     useEffect(() => {
-        const fetchSubjects = async () => {
+        const fetchInitialData = async () => {
             try {
-                const { data } = await supabase.from('subjects_catalog').select('*').order('name');
-                if (data) setSubjectsCatalog(data);
-            } catch (err) { console.error('Error fetching subjects catalog:', err); }
+                // 1. Fetch subjects
+                const { data: subData } = await supabase.from('subjects_catalog').select('*').order('name');
+                if (subData) setSubjectsCatalog(subData);
+
+                // 2. Fetch teachers
+                const { data: roleData } = await supabase
+                    .from('user_roles')
+                    .select('id')
+                    .eq('role_name', 'docente')
+                    .single();
+                if (roleData) {
+                    const { data: profData } = await supabase
+                        .from('user_profiles')
+                        .select('id, first_name, last_name')
+                        .eq('role_id', roleData.id)
+                        .order('last_name');
+                    if (profData) setTeachersList(profData);
+                }
+            } catch (err) { 
+                console.error('Error fetching initial form data:', err); 
+            }
         };
-        fetchSubjects();
+
+        fetchInitialData();
+
+        // Auto-generate card number
+        const year = new Date().getFullYear();
+        const rand = Math.floor(1000 + Math.random() * 9000);
+        setFormData(prev => ({
+            ...prev,
+            card_number: `TR-${year}-${rand}`
+        }));
     }, []);
 
     const [formData, setFormData] = useState({
@@ -141,7 +169,8 @@ export default function RedCardForm() {
                 <div className="card max-w-md w-full text-center border-t-4" style={{ borderTopColor: 'var(--color-success)' }}>
                     <div className="text-5xl mb-4">✅</div>
                     <h2 className="text-2xl font-bold mb-2">Tarjeta Ingresada</h2>
-                    <p className="text-secondary mb-6">Gracias por ayudar a mantener las 5S. La tarjeta ha sido registrada exitosamente en el Nodo Tecnológico ETRR.</p>
+                    <p className="text-secondary mb-3">Gracias por ayudar a mantener las 5S. La tarjeta ha sido registrada exitosamente en el Nodo Tecnológico ETRR.</p>
+                    <p className="text-sm font-mono font-bold text-success bg-success/10 py-2 px-4 rounded-lg inline-block mb-6">Código de Reporte: {formData.card_number}</p>
                     <p className="text-sm text-tertiary">Redirigiendo al inicio...</p>
                 </div>
             </div>
@@ -193,9 +222,9 @@ export default function RedCardForm() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
-                                        Número de tarjeta <span className="text-error">*</span>
+                                        Número de tarjeta <span className="text-secondary">(Auto-generado)</span>
                                     </label>
-                                    <input type="text" name="card_number" value={formData.card_number} onChange={handleChange} required placeholder="Ej. TR-2026-001" className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all placeholder:text-surface-hover shadow-inner" />
+                                    <input type="text" name="card_number" value={formData.card_number} readOnly className="w-full bg-main/30 border border-color/40 rounded-xl px-4 py-3 text-secondary font-mono cursor-not-allowed shadow-inner" />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
@@ -268,11 +297,24 @@ export default function RedCardForm() {
                                     </select>
                                     <div className="absolute top-[34px] right-4 pointer-events-none text-tertiary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
                                 </div>
-                                <div className="space-y-2">
+                                <div className="space-y-2 relative">
                                     <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
-                                        Docente a cargo de la clase <span className="text-error">*</span>
+                                        Docente a cargo de la clase (Opcional)
                                     </label>
-                                    <input type="text" name="teacher_responsible" value={formData.teacher_responsible} onChange={handleChange} required placeholder="Nombre del docente" className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all placeholder:text-surface-hover shadow-inner" />
+                                    <select
+                                        name="teacher_responsible"
+                                        value={formData.teacher_responsible}
+                                        onChange={handleChange}
+                                        className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all appearance-none cursor-pointer shadow-inner pr-10"
+                                    >
+                                        <option value="" className="text-tertiary bg-surface">Seleccionar docente (Opcional)...</option>
+                                        {teachersList.map(t => (
+                                            <option key={t.id} value={`${t.last_name}, ${t.first_name}`} className="bg-surface text-[var(--text-primary)]">
+                                                {t.last_name}, {t.first_name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute top-[34px] right-4 pointer-events-none text-tertiary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
                                 </div>
                                 <div className="space-y-2 relative">
                                     <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">

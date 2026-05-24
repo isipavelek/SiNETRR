@@ -187,7 +187,7 @@ export default function Login() {
                                 <h3 className="font-bold text-[15px] text-[var(--text-primary)]">Reportar Tarjeta Roja (5S)</h3>
                             </div>
                             <p className="text-sm text-secondary mb-4 leading-relaxed pl-12 pr-2">
-                                Si detectaste una anomalía en un aula o taller, podés reportarla rápidamente de forma pública o anónima.
+                                Si detectaste algo fuera de lugar en un aula o taller, podés reportarlo rápidamente de forma pública o anónima.
                             </p>
                             <Link to="/tarjeta-roja" className="btn w-full bg-error text-[var(--text-primary)] hover:bg-red-600 border-none shadow-sm hover:shadow-md ml-auto flex items-center justify-center gap-2">
                                 Crear Reporte 5S

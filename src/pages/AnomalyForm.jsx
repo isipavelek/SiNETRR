@@ -9,6 +9,7 @@ export default function AnomalyForm() {
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState('');
     const fileInputRef = useRef(null);
+    const [teachersList, setTeachersList] = useState([]);
 
     const [formData, setFormData] = useState({
         card_number: '',
@@ -26,6 +27,29 @@ export default function AnomalyForm() {
     });
 
     useEffect(() => {
+        const fetchInitialData = async () => {
+            try {
+                // Fetch teachers
+                const { data: roleData } = await supabase
+                    .from('user_roles')
+                    .select('id')
+                    .eq('role_name', 'docente')
+                    .single();
+                if (roleData) {
+                    const { data: profData } = await supabase
+                        .from('user_profiles')
+                        .select('id, first_name, last_name')
+                        .eq('role_id', roleData.id)
+                        .order('last_name');
+                    if (profData) setTeachersList(profData);
+                }
+            } catch (err) {
+                console.error('Error fetching teachers:', err);
+            }
+        };
+
+        fetchInitialData();
+
         // Auto-generate a unique anomaly card number
         const year = new Date().getFullYear();
         const rand = Math.floor(1000 + Math.random() * 9000);
@@ -90,7 +114,7 @@ export default function AnomalyForm() {
                     group_name: formData.group_name || 'Ciclo basico',
                     course: parseInt(formData.course) || 1,
                     sector: formData.sector,
-                    teacher_responsible: formData.teacher_responsible || 'Sin Asignar',
+                    teacher_responsible: formData.teacher_responsible,
                     subject: 'ANOMALIA', // MUST be ANOMALIA to be fetched in Anomaly Dashboard
                     element: formData.element,
                     problem_description: formData.problem_description,
@@ -127,7 +151,8 @@ export default function AnomalyForm() {
                 <div className="card max-w-md w-full text-center border-t-4" style={{ borderTopColor: 'var(--color-accent)' }}>
                     <div className="text-5xl mb-4">⚠️</div>
                     <h2 className="text-2xl font-bold mb-2">Anomalía Reportada</h2>
-                    <p className="text-secondary mb-6">El reporte técnico ha sido registrado con éxito. Gracias por colaborar en mantener los talleres y equipos en óptimo estado.</p>
+                    <p className="text-secondary mb-3">El reporte técnico ha sido registrado con éxito. Gracias por colaborar en mantener los talleres y equipos en óptimo estado.</p>
+                    <p className="text-sm font-mono font-bold text-accent bg-accent/10 py-2 px-4 rounded-lg inline-block mb-6">Código de Reporte: {formData.card_number}</p>
                     <p className="text-sm text-tertiary">Redirigiendo al inicio...</p>
                 </div>
             </div>
@@ -179,9 +204,9 @@ export default function AnomalyForm() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
-                                        Número de Reporte <span className="text-error">*</span>
+                                        Número de Reporte <span className="text-secondary">(Auto-generado)</span>
                                     </label>
-                                    <input type="text" name="card_number" value={formData.card_number} onChange={handleChange} required placeholder="Ej. AN-2026-001" className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-all placeholder:text-surface-hover shadow-inner font-mono" />
+                                    <input type="text" name="card_number" value={formData.card_number} readOnly className="w-full bg-main/30 border border-color/40 rounded-xl px-4 py-3 text-secondary font-mono cursor-not-allowed shadow-inner" />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
@@ -254,11 +279,24 @@ export default function AnomalyForm() {
                                     </select>
                                     <div className="absolute top-[34px] right-4 pointer-events-none text-tertiary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
                                 </div>
-                                <div className="md:col-span-2 space-y-2">
+                                <div className="md:col-span-2 space-y-2 relative">
                                     <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
-                                        Docente a cargo de la clase (Si corresponde)
+                                        Docente a cargo de la clase (Opcional)
                                     </label>
-                                    <input type="text" name="teacher_responsible" value={formData.teacher_responsible} onChange={handleChange} placeholder="Nombre del docente responsable" className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-all placeholder:text-surface-hover shadow-inner" />
+                                    <select
+                                        name="teacher_responsible"
+                                        value={formData.teacher_responsible}
+                                        onChange={handleChange}
+                                        className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-all appearance-none cursor-pointer shadow-inner pr-10"
+                                    >
+                                        <option value="" className="text-tertiary bg-surface">Seleccionar docente (Opcional)...</option>
+                                        {teachersList.map(t => (
+                                            <option key={t.id} value={`${t.last_name}, ${t.first_name}`} className="bg-surface text-[var(--text-primary)]">
+                                                {t.last_name}, {t.first_name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute top-[34px] right-4 pointer-events-none text-tertiary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
                                 </div>
                             </div>
                         </section>
