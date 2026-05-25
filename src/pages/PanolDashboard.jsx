@@ -5,7 +5,7 @@ import {
     Search, Plus, QrCode, PackageOpen, CheckCircle, XCircle, 
     AlertCircle, Calendar, User, Clock, Trash2, Edit, Wrench, 
     History, UserCheck, BookOpen, Layers, Check, ChevronDown, ChevronUp,
-    Upload, FileSpreadsheet, Camera
+    Upload, FileSpreadsheet, Camera, X
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { createNotification } from '../lib/notificationsHelper';
