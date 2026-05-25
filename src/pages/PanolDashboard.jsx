@@ -315,7 +315,7 @@ export default function PanolDashboard() {
             return data.publicUrl;
         } catch (e) {
             console.error("Error uploading tool photo:", e);
-            throw new Error("No se pudo subir la foto de la herramienta.");
+            throw new Error("No se pudo subir la foto de la herramienta: " + (e.message || "Error desconocido"));
         }
     };
 

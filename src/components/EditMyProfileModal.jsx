@@ -55,7 +55,7 @@ export default function EditMyProfileModal({ isOpen, onClose }) {
             return data.publicUrl;
         } catch (e) {
             console.error("Error uploading profile photo:", e);
-            throw new Error("No se pudo subir la foto de perfil. Verifique la conexión o el tamaño del archivo.");
+            throw new Error("No se pudo subir la foto de perfil: " + (e.message || "Error desconocido"));
         }
     };
 

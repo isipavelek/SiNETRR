@@ -110,7 +110,7 @@ export default function EditTeacherModal({ isOpen, onClose, teacher, onTeacherUp
             return data.publicUrl;
         } catch (e) {
             console.error("Error uploading teacher profile photo:", e);
-            throw new Error("No se pudo subir la foto del docente.");
+            throw new Error("No se pudo subir la foto del docente: " + (e.message || "Error desconocido"));
         }
     };
 
