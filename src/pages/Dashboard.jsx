@@ -287,8 +287,12 @@ export default function Dashboard() {
                         className="w-full text-left px-4 py-3 mb-4 bg-surface-hover/50 hover:bg-surface-hover rounded-xl border border-color/30 flex items-center gap-3 shadow-inner transition-colors group cursor-pointer"
                         title="Editar mi perfil"
                     >
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm shadow-md shrink-0 group-hover:scale-105 transition-transform">
-                            {userProfile?.first_name?.charAt(0) || 'U'}
+                        <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm shadow-md shrink-0 group-hover:scale-105 transition-transform">
+                            {userProfile?.photo_url ? (
+                                <img src={userProfile.photo_url} alt={`${userProfile?.first_name} ${userProfile?.last_name}`} className="w-full h-full object-cover" />
+                            ) : (
+                                userProfile?.first_name?.charAt(0) || 'U'
+                            )}
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="font-bold text-sm text-[var(--text-primary)] truncate drop-shadow-sm group-hover:text-primary transition-colors">{userProfile?.first_name} {userProfile?.last_name}</p>
