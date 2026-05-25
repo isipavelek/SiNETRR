@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { 
     Home, AlertTriangle, Package, Users, LogOut, Settings, Menu, X, 
     BookOpen, ClipboardList, Bell, Trash2, CheckCircle, BarChart2,
-    ChevronDown, ChevronUp, FileText
+    ChevronDown, ChevronUp, FileText, GraduationCap, ShoppingBag
 } from 'lucide-react';
 import RedCardDashboard from './RedCardDashboard';
 import TeacherManagement from './TeacherManagement';
@@ -17,12 +17,16 @@ import AuditManagement from './AuditManagement';
 import AnomalyDashboard from './AnomalyDashboard';
 import EditMyProfileModal from '../components/EditMyProfileModal';
 import GlobalSettings from './GlobalSettings';
+import CoursesList from './CoursesList';
+import SubjectDetailView from './SubjectDetailView';
+import PurchasesManagement from './PurchasesManagement';
 
 export default function Dashboard() {
     const { userProfile, role, signOut } = useAuth();
     const [activeTab, setActiveTab] = useState('inicio');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [selectedTeacherId, setSelectedTeacherId] = useState(null);
+    const [selectedSubjectId, setSelectedSubjectId] = useState(null);
     const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
     const [is5sDropdownOpen, setIs5sDropdownOpen] = useState(true);
 
@@ -111,7 +115,9 @@ export default function Dashboard() {
         { id: 'auditorias', label: 'Auditorías 5S', icon: <BarChart2 size={20} />, roles: ['gerente', 'coordinador'], group: '5s' },
         { id: 'anomalias', label: 'Informe de Anomalías 5S', icon: <FileText size={20} />, roles: ['gerente', 'coordinador', 'docente'], group: '5s' },
         { id: 'panol', label: 'Pañol', icon: <Package size={20} />, roles: ['gerente', 'coordinador', 'docente', 'panol'] },
+        { id: 'compras', label: 'Compras', icon: <ShoppingBag size={20} />, roles: ['gerente', 'coordinador'] },
         { id: 'docentes', label: 'Docentes', icon: <Users size={20} />, roles: ['gerente', 'coordinador'] },
+        { id: 'cursos', label: 'Cursos', icon: <GraduationCap size={20} />, roles: ['gerente', 'coordinador'] },
         { id: 'materias', label: 'Materias', icon: <BookOpen size={20} />, roles: ['gerente', 'coordinador'] },
         { id: 'mi_perfil', label: 'Mi Perfil Docente', icon: <Users size={20} />, roles: ['docente'] },
     ];
@@ -371,8 +377,11 @@ export default function Dashboard() {
                     {activeTab === 'anomalias' && <AnomalyDashboard />}
                     {activeTab === 'docentes' && <TeacherManagement onViewTeacher={handleViewTeacher} />}
                     {activeTab === 'materias' && <SubjectManagement />}
-                    {activeTab === 'mi_perfil' && <TeacherProfile />}
-                    {activeTab === 'perfil_docente' && <TeacherProfile teacherId={selectedTeacherId} onBack={() => handleTabChange('docentes')} />}
+                    {activeTab === 'mi_perfil' && <TeacherProfile onSelectSubject={(subId) => { setSelectedSubjectId(subId); setActiveTab('detalle_materia'); }} />}
+                    {activeTab === 'perfil_docente' && <TeacherProfile teacherId={selectedTeacherId} onBack={() => handleTabChange('docentes')} onSelectSubject={(subId) => { setSelectedSubjectId(subId); setActiveTab('detalle_materia'); }} />}
+                    {activeTab === 'cursos' && <CoursesList onSelectSubject={(subId) => { setSelectedSubjectId(subId); setActiveTab('detalle_materia'); }} />}
+                    {activeTab === 'compras' && <PurchasesManagement />}
+                    {activeTab === 'detalle_materia' && <SubjectDetailView subjectId={selectedSubjectId} onBack={() => { setActiveTab(role === 'docente' ? 'mi_perfil' : (selectedTeacherId ? 'perfil_docente' : 'cursos')); }} />}
                     {activeTab === 'panol' && <PanolDashboard />}
                     {activeTab === 'configuracion' && <GlobalSettings />}
                 </div>

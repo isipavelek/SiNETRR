@@ -22,7 +22,7 @@ const parseProfiles = (orientationStr) => {
     return { profilesList, specialtyArea };
 };
 
-export default function TeacherProfile({ teacherId, onBack }) {
+export default function TeacherProfile({ teacherId, onBack, onSelectSubject }) {
     const { role, userProfile, refreshProfile } = useAuth();
     const [subjects, setSubjects] = useState([]);
     const [evaluations, setEvaluations] = useState([]);
@@ -324,17 +324,27 @@ export default function TeacherProfile({ teacherId, onBack }) {
                                         <div className="flex items-center justify-between pl-3 gap-2">
                                             <button
                                                 onClick={() => togglePlanning(sub.id, sub.planning_submitted)}
-                                                className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-2 shadow-sm ${sub.planning_submitted
+                                                className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 shadow-sm ${sub.planning_submitted
                                                     ? 'bg-success/10 text-success border-success/30 hover:bg-success/20'
                                                     : 'bg-warning/10 text-warning border-warning/30 hover:bg-warning hover:text-[var(--text-primary)]'
                                                     }`}
                                             >
                                                 {sub.planning_submitted ? (
-                                                    <><CheckCircle size={14} /> Planilla Entregada</>
+                                                    <><CheckCircle size={14} /> Entregada</>
                                                 ) : (
-                                                    <><Clock size={14} /> Planificación Pendiente</>
+                                                    <><Clock size={14} /> Pendiente</>
                                                 )}
                                             </button>
+                                            
+                                            {onSelectSubject && (
+                                                <button
+                                                    onClick={() => onSelectSubject(sub.id)}
+                                                    className="px-3 py-2 rounded-xl text-xs font-bold bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-white transition-all flex items-center gap-1.5 shadow-sm grow justify-center"
+                                                >
+                                                    Gestionar
+                                                </button>
+                                            )}
+
                                             {(role === 'coordinador' || role === 'gerente') && (
                                                 <button
                                                     onClick={() => setSubjectToDelete({ id: sub.id, name: sub.name, courseName: sub.courses?.name })}
