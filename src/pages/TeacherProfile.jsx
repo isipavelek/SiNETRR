@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { CheckCircle, XCircle, Clock, Trash2, Plus, ListChecks, Camera } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Trash2, Plus, ListChecks, Camera, X, Upload } from 'lucide-react';
 import AddSubjectModal from '../components/AddSubjectModal';
 
 const parseProfiles = (orientationStr) => {
@@ -33,6 +33,8 @@ export default function TeacherProfile({ teacherId, onBack }) {
     const [isAddSubjectOpen, setIsAddSubjectOpen] = useState(false);
     const [subjectToDelete, setSubjectToDelete] = useState(null);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
+    const [profileImageModal, setProfileImageModal] = useState(null);
+    const avatarFileInputRef = useRef(null);
 
     const targetId = teacherId || userProfile?.id;
     const isOwnProfile = targetId === userProfile?.id;
@@ -82,6 +84,36 @@ export default function TeacherProfile({ teacherId, onBack }) {
             alert("Hubo un error al actualizar la foto de perfil: " + err.message);
         } finally {
             setUploadingAvatar(false);
+        }
+    };
+
+    const handleAvatarClick = () => {
+        if (avatarFileInputRef.current) {
+            avatarFileInputRef.current.click();
+        }
+    };
+
+    const handleDeleteAvatar = async (teacherId) => {
+        if (!confirm("¿Estás seguro que deseas eliminar esta foto de perfil?")) return;
+        try {
+            const { error: dbError } = await supabase
+                .from('user_profiles')
+                .update({ photo_url: null })
+                .eq('id', teacherId);
+
+            if (dbError) throw dbError;
+
+            // Refresh context if self profile
+            if (isOwnProfile && refreshProfile) {
+                await refreshProfile();
+            }
+
+            setProfileImageModal(null);
+            fetchMyData();
+            alert("Foto de perfil eliminada.");
+        } catch (err) {
+            console.error("Error deleting avatar:", err);
+            alert("Hubo un error al eliminar la foto de perfil: " + err.message);
         }
     };
 
@@ -192,7 +224,11 @@ export default function TeacherProfile({ teacherId, onBack }) {
                 <div className="absolute top-0 right-1/4 w-64 h-64 bg-primary/10 rounded-full blur-3xl -mt-20 pointer-events-none"></div>
 
                 <div className="relative z-10 flex items-center gap-5">
-                    <div className="relative group w-16 h-16 rounded-2xl overflow-hidden shadow-lg shadow-primary/20 shrink-0">
+                    <div 
+                        onClick={() => setProfileImageModal(profileBasic)}
+                        className="relative group w-16 h-16 rounded-2xl overflow-hidden shadow-lg shadow-primary/20 shrink-0 cursor-pointer"
+                        title="Ver foto de perfil"
+                    >
                         {uploadingAvatar ? (
                             <div className="w-full h-full bg-main/60 flex items-center justify-center">
                                 <svg className="animate-spin h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -204,13 +240,9 @@ export default function TeacherProfile({ teacherId, onBack }) {
                                 {profileBasic?.first_name?.charAt(0) || 'D'}
                             </div>
                         )}
-                        {(isOwnProfile || role === 'coordinador' || role === 'gerente') && (
-                            <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white text-[9px] font-bold">
-                                <Camera size={14} className="mb-0.5" />
-                                <span>Subir</span>
-                                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-                            </label>
-                        )}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                            <Camera size={16} />
+                        </div>
                     </div>
                     <div>
                         <div className="flex items-center gap-3 flex-wrap">
@@ -493,6 +525,67 @@ export default function TeacherProfile({ teacherId, onBack }) {
                 </div>,
                 document.body
             )}
+
+            {/* Profile Image Lightbox Modal */}
+            {profileImageModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex justify-center items-center p-4 animate-fade-in-up">
+                    <div className="bg-surface border border-color rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl relative animate-scale-in">
+                        <div className="flex justify-between items-center p-5 border-b border-color/50 bg-surface-hover/50">
+                            <h3 className="font-bold text-base text-[var(--text-primary)] truncate pr-4">
+                                {profileImageModal.first_name} {profileImageModal.last_name}
+                            </h3>
+                            <button onClick={() => setProfileImageModal(null)} className="text-secondary hover:text-[var(--text-primary)] transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-6 flex flex-col items-center gap-6">
+                            <div className="w-64 h-64 rounded-full overflow-hidden border border-color/85 bg-main/30 flex items-center justify-center relative shadow-lg">
+                                {profileImageModal.photo_url ? (
+                                    <img src={profileImageModal.photo_url} alt={`${profileImageModal.first_name} ${profileImageModal.last_name}`} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="text-center text-tertiary flex flex-col items-center gap-2">
+                                        <Camera size={48} />
+                                        <span className="text-xs font-semibold">Sin foto de perfil</span>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {(isOwnProfile || role === 'coordinador' || role === 'gerente') && (
+                                <div className="flex gap-3 w-full border-t border-color/40 pt-4">
+                                    <button
+                                        onClick={() => {
+                                            handleAvatarClick();
+                                            setProfileImageModal(null);
+                                        }}
+                                        className="flex-1 py-2 px-4 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md shadow-primary/20"
+                                    >
+                                        <Upload size={14} />
+                                        {profileImageModal.photo_url ? 'Cambiar Foto' : 'Agregar Foto'}
+                                    </button>
+                                    {profileImageModal.photo_url && (
+                                        <button
+                                            onClick={() => handleDeleteAvatar(profileImageModal.id)}
+                                            className="py-2 px-4 bg-error/15 hover:bg-error hover:text-white text-error rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                                            title="Eliminar Foto"
+                                        >
+                                            <Trash2 size={14} />
+                                            Eliminar
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <input 
+                type="file" 
+                ref={avatarFileInputRef} 
+                onChange={handleAvatarUpload} 
+                accept="image/*" 
+                className="hidden" 
+            />
         </div>
     );
 }

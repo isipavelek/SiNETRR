@@ -79,6 +79,7 @@ export default function PanolDashboard() {
     const [newTool, setNewTool] = useState({ name: '', code: '', stock: '' });
     const [toolPhotoFile, setToolPhotoFile] = useState(null);
     const [uploadingToolId, setUploadingToolId] = useState(null);
+    const [toolImageModal, setToolImageModal] = useState(null);
     const toolFileInputRef = useRef(null);
 
     // Excel tools import and seeding states
@@ -348,6 +349,25 @@ export default function PanolDashboard() {
         } finally {
             setUploadingToolId(null);
             e.target.value = ''; // Reset input
+        }
+    };
+
+    const handleDeleteToolPhoto = async (toolId) => {
+        if (!confirm("¿Estás seguro que deseas eliminar la foto de esta herramienta?")) return;
+        try {
+            const { error } = await supabase
+                .from('inventory')
+                .update({ image_url: null })
+                .eq('id', toolId);
+
+            if (error) throw error;
+
+            alert("Foto de la herramienta eliminada.");
+            setToolImageModal(null);
+            fetchInventory();
+        } catch (err) {
+            console.error("Error deleting tool image:", err);
+            alert("Error al eliminar la foto: " + err.message);
         }
     };
 
@@ -3570,9 +3590,9 @@ export default function PanolDashboard() {
                                                     <td className="p-4 pl-6">
                                                         <div className="flex items-center gap-3">
                                                             <div 
-                                                                onClick={() => isPanolOrAdmin && handleToolImageClick(item.id)}
-                                                                className={`w-10 h-10 rounded-lg bg-main/50 border border-color flex items-center justify-center text-secondary overflow-hidden relative transition-all ${isPanolOrAdmin ? 'cursor-pointer hover:border-primary hover:text-primary group/img' : ''}`}
-                                                                title={isPanolOrAdmin ? 'Cambiar foto de herramienta' : ''}
+                                                                onClick={() => setToolImageModal(item)}
+                                                                className="w-10 h-10 rounded-lg bg-main/50 border border-color flex items-center justify-center text-secondary overflow-hidden relative transition-all cursor-pointer hover:border-primary hover:text-primary group/img"
+                                                                title="Gestionar imagen del material"
                                                             >
                                                                 {item.image_url ? (
                                                                     <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
@@ -3795,6 +3815,58 @@ export default function PanolDashboard() {
                     </div>
                 </div>
             )}
+            
+            {/* Tool Image Lightbox Modal */}
+            {toolImageModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex justify-center items-center p-4 animate-fade-in-up">
+                    <div className="bg-surface border border-color rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl relative animate-scale-in">
+                        <div className="flex justify-between items-center p-5 border-b border-color/50 bg-surface-hover/50">
+                            <h3 className="font-bold text-base text-[var(--text-primary)] truncate pr-4">{toolImageModal.name}</h3>
+                            <button onClick={() => setToolImageModal(null)} className="text-secondary hover:text-[var(--text-primary)] transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-6 flex flex-col items-center gap-6">
+                            <div className="w-64 h-64 rounded-xl overflow-hidden border border-color/85 bg-main/30 flex items-center justify-center relative shadow-lg">
+                                {toolImageModal.image_url ? (
+                                    <img src={toolImageModal.image_url} alt={toolImageModal.name} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="text-center text-tertiary flex flex-col items-center gap-2">
+                                        <PackageOpen size={48} />
+                                        <span className="text-xs font-semibold">Sin imagen cargada</span>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {isPanolOrAdmin && (
+                                <div className="flex gap-3 w-full border-t border-color/40 pt-4">
+                                    <button
+                                        onClick={() => {
+                                            handleToolImageClick(toolImageModal.id);
+                                            setToolImageModal(null);
+                                        }}
+                                        className="flex-1 py-2 px-4 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md shadow-primary/20"
+                                    >
+                                        <Upload size={14} />
+                                        {toolImageModal.image_url ? 'Cambiar Foto' : 'Agregar Foto'}
+                                    </button>
+                                    {toolImageModal.image_url && (
+                                        <button
+                                            onClick={() => handleDeleteToolPhoto(toolImageModal.id)}
+                                            className="py-2 px-4 bg-error/15 hover:bg-error hover:text-white text-error rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                                            title="Eliminar Foto"
+                                        >
+                                            <Trash2 size={14} />
+                                            Eliminar
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <input 
                 type="file" 
                 ref={toolFileInputRef} 
