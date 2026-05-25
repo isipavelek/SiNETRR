@@ -31,22 +31,25 @@ export default function AnomalyForm() {
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
-                // 1. Fetch subjects
-                const { data: subData } = await supabase.from('subjects_catalog').select('*').order('name');
+                // 1. Fetch subjects (requires anon read policy in Supabase)
+                const { data: subData, error: subError } = await supabase.from('subjects_catalog').select('*').order('name');
+                if (subError) console.error('[AnomalyForm] Error cargando materias:', subError.message);
                 if (subData) setSubjectsCatalog(subData);
 
                 // 2. Fetch teachers
-                const { data: roleData } = await supabase
+                const { data: roleData, error: roleError } = await supabase
                     .from('user_roles')
                     .select('id')
                     .eq('role_name', 'docente')
                     .single();
+                if (roleError) console.error('[AnomalyForm] Error obteniendo rol docente:', roleError.message);
                 if (roleData) {
-                    const { data: profData } = await supabase
+                    const { data: profData, error: profError } = await supabase
                         .from('user_profiles')
                         .select('id, first_name, last_name')
                         .eq('role_id', roleData.id)
                         .order('last_name');
+                    if (profError) console.error('[AnomalyForm] Error cargando docentes:', profError.message);
                     if (profData) setTeachersList(profData);
                 }
             } catch (err) {
@@ -238,13 +241,13 @@ export default function AnomalyForm() {
                                     <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
                                         Nombre del Reportante <span className="text-error">*</span>
                                     </label>
-                                    <input type="text" name="placed_by" value={formData.placed_by} onChange={handleChange} required placeholder="Nombre completo o correo electrónico de quien reporta la falla" className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-all placeholder:text-surface-hover shadow-inner" />
+                                    <input type="text" name="placed_by" value={formData.placed_by} onChange={handleChange} required placeholder="Nombre completo de quien realiza el reporte" className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-all placeholder:text-surface-hover shadow-inner" />
                                 </div>
                                 <div className="space-y-2 relative">
                                     <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
-                                        Grupo / Especialidad
+                                        Grupo / Especialidad <span className="text-error">*</span>
                                     </label>
-                                    <select name="group_name" value={formData.group_name} onChange={handleChange} className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-all appearance-none cursor-pointer shadow-inner pr-10">
+                                    <select name="group_name" value={formData.group_name} onChange={handleChange} required className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-all appearance-none cursor-pointer shadow-inner pr-10">
                                         <option value="" className="text-tertiary bg-surface">Seleccione especialidad...</option>
                                         <option value="Ciclo basico" className="bg-surface text-[var(--text-primary)]">Ciclo Básico</option>
                                         <option value="TEL" className="bg-surface text-[var(--text-primary)]">TEL (Electrónica)</option>
@@ -254,15 +257,34 @@ export default function AnomalyForm() {
                                 </div>
                                 <div className="space-y-2 relative">
                                     <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
-                                        Curso (Año)
+                                        Año de Cursada <span className="text-error">*</span>
                                     </label>
-                                    <select name="course" value={formData.course} onChange={handleChange} className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-all appearance-none cursor-pointer shadow-inner pr-10">
+                                    <select name="course" value={formData.course} onChange={handleChange} required className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-all appearance-none cursor-pointer shadow-inner pr-10">
                                         <option value="" className="text-tertiary bg-surface">Seleccione curso...</option>
                                         {[1, 2, 3, 4, 5, 6, 7].map(c => <option key={c} value={c} className="bg-surface text-[var(--text-primary)]">{c}° Año</option>)}
                                     </select>
                                     <div className="absolute top-[34px] right-4 pointer-events-none text-tertiary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
                                 </div>
-                                <div className="md:col-span-2 space-y-2 relative">
+                                <div className="space-y-2 relative">
+                                    <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
+                                        Docente a cargo de la clase (Opcional)
+                                    </label>
+                                    <select
+                                        name="teacher_responsible"
+                                        value={formData.teacher_responsible}
+                                        onChange={handleChange}
+                                        className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-all appearance-none cursor-pointer shadow-inner pr-10"
+                                    >
+                                        <option value="" className="text-tertiary bg-surface">Seleccionar docente (Opcional)...</option>
+                                        {teachersList.map(t => (
+                                            <option key={t.id} value={`${t.last_name}, ${t.first_name}`} className="bg-surface text-[var(--text-primary)]">
+                                                {t.last_name}, {t.first_name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute top-[34px] right-4 pointer-events-none text-tertiary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
+                                </div>
+                                <div className="space-y-2 relative">
                                     <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
                                         Asignatura / Materia (Opcional)
                                     </label>
@@ -313,25 +335,7 @@ export default function AnomalyForm() {
                                     </select>
                                     <div className="absolute top-[34px] right-4 pointer-events-none text-tertiary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
                                 </div>
-                                <div className="md:col-span-2 space-y-2 relative">
-                                    <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
-                                        Docente a cargo de la clase (Opcional)
-                                    </label>
-                                    <select
-                                        name="teacher_responsible"
-                                        value={formData.teacher_responsible}
-                                        onChange={handleChange}
-                                        className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-all appearance-none cursor-pointer shadow-inner pr-10"
-                                    >
-                                        <option value="" className="text-tertiary bg-surface">Seleccionar docente (Opcional)...</option>
-                                        {teachersList.map(t => (
-                                            <option key={t.id} value={`${t.last_name}, ${t.first_name}`} className="bg-surface text-[var(--text-primary)]">
-                                                {t.last_name}, {t.first_name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <div className="absolute top-[34px] right-4 pointer-events-none text-tertiary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
-                                </div>
+
                             </div>
                         </section>
 

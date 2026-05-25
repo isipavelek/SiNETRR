@@ -15,22 +15,25 @@ export default function RedCardForm() {
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
-                // 1. Fetch subjects
-                const { data: subData } = await supabase.from('subjects_catalog').select('*').order('name');
+                // 1. Fetch subjects (requires anon read policy in Supabase)
+                const { data: subData, error: subError } = await supabase.from('subjects_catalog').select('*').order('name');
+                if (subError) console.error('[RedCardForm] Error cargando materias:', subError.message);
                 if (subData) setSubjectsCatalog(subData);
 
                 // 2. Fetch teachers
-                const { data: roleData } = await supabase
+                const { data: roleData, error: roleError } = await supabase
                     .from('user_roles')
                     .select('id')
                     .eq('role_name', 'docente')
                     .single();
+                if (roleError) console.error('[RedCardForm] Error obteniendo rol docente:', roleError.message);
                 if (roleData) {
-                    const { data: profData } = await supabase
+                    const { data: profData, error: profError } = await supabase
                         .from('user_profiles')
                         .select('id, first_name, last_name')
                         .eq('role_id', roleData.id)
                         .order('last_name');
+                    if (profError) console.error('[RedCardForm] Error cargando docentes:', profError.message);
                     if (profData) setTeachersList(profData);
                 }
             } catch (err) {
@@ -188,7 +191,7 @@ export default function RedCardForm() {
                 <div className="p-8 md:p-10 border-b border-color/40 bg-surface-hover/30 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative">
                     <div className="flex items-start gap-5">
                         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-error to-error-hover flex items-center justify-center text-[var(--text-primary)] shadow-lg shadow-error/30 shrink-0">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                         </div>
                         <div>
                             <h1 className="text-3xl md:text-4xl font-extrabold text-[var(--text-primary)] tracking-tight mb-2">Registro de Tarjeta Roja</h1>
@@ -216,7 +219,7 @@ export default function RedCardForm() {
                         <section className="space-y-6">
                             <div className="flex items-center gap-3 border-b border-color/40 pb-2 mb-6">
                                 <span className="bg-primary/20 text-primary w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-primary/30">1</span>
-                                <h3 className="text-lg font-bold text-[var(--text-primary)] uppercase tracking-wider">Información General</h3>
+                                <h3 className="text-lg font-bold text-[var(--text-primary)] uppercase tracking-wider">Datos del Reporte</h3>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -234,11 +237,47 @@ export default function RedCardForm() {
                                 </div>
                                 <div className="md:col-span-2 space-y-2">
                                     <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
-                                        Nombre del Reportante (Colocó) <span className="text-error">*</span>
+                                        Nombre del Reportante <span className="text-error">*</span>
                                     </label>
-                                    <input type="text" name="placed_by" value={formData.placed_by} onChange={handleChange} required placeholder="Nombre completo de quien identificó el problema" className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all placeholder:text-surface-hover shadow-inner" />
+                                    <input type="text" name="placed_by" value={formData.placed_by} onChange={handleChange} required placeholder="Nombre completo de quien realiza el reporte" className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all placeholder:text-surface-hover shadow-inner" />
                                 </div>
-                                <div className="md:col-span-2 space-y-2 relative">
+                                <div className="space-y-2 relative">
+                                    <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
+                                        Grupo / Especialidad <span className="text-error">*</span>
+                                    </label>
+                                    <select name="group_name" value={formData.group_name} onChange={handleChange} required className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all appearance-none cursor-pointer shadow-inner pr-10">
+                                        <option value="" className="text-tertiary bg-surface">Seleccione especialidad...</option>
+                                        <option value="Ciclo basico" className="bg-surface text-[var(--text-primary)]">Ciclo Básico</option>
+                                        <option value="TEL" className="bg-surface text-[var(--text-primary)]">TEL (Electrónica)</option>
+                                        <option value="TEM" className="bg-surface text-[var(--text-primary)]">TEM (Electromecánica)</option>
+                                    </select>
+                                    <div className="absolute top-[34px] right-4 pointer-events-none text-tertiary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
+                                </div>
+                                <div className="space-y-2 relative">
+                                    <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
+                                        Año de Cursada <span className="text-error">*</span>
+                                    </label>
+                                    <select name="course" value={formData.course} onChange={handleChange} required className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all appearance-none cursor-pointer shadow-inner pr-10">
+                                        <option value="" className="text-tertiary bg-surface">Seleccione curso...</option>
+                                        {[1, 2, 3, 4, 5, 6, 7].map(c => <option key={c} value={c} className="bg-surface text-[var(--text-primary)]">{c}° Año</option>)}
+                                    </select>
+                                    <div className="absolute top-[34px] right-4 pointer-events-none text-tertiary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
+                                </div>
+                                <div className="space-y-2 relative">
+                                    <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
+                                        Docente a cargo de la clase (Opcional)
+                                    </label>
+                                    <select name="teacher_responsible" value={formData.teacher_responsible} onChange={handleChange} className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all appearance-none cursor-pointer shadow-inner pr-10">
+                                        <option value="" className="text-tertiary bg-surface">Seleccionar docente (Opcional)...</option>
+                                        {teachersList.map(t => (
+                                            <option key={t.id} value={`${t.last_name}, ${t.first_name}`} className="bg-surface text-[var(--text-primary)]">
+                                                {t.last_name}, {t.first_name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute top-[34px] right-4 pointer-events-none text-tertiary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
+                                </div>
+                                <div className="space-y-2 relative">
                                     <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
                                         Asignatura / Materia (Opcional)
                                     </label>
@@ -259,35 +298,13 @@ export default function RedCardForm() {
                         <section className="space-y-6">
                             <div className="flex items-center gap-3 border-b border-color/40 pb-2 mb-6">
                                 <span className="bg-primary/20 text-primary w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-primary/30">2</span>
-                                <h3 className="text-lg font-bold text-[var(--text-primary)] uppercase tracking-wider">Ubicación y Contexto</h3>
+                                <h3 className="text-lg font-bold text-[var(--text-primary)] uppercase tracking-wider">Ubicación y Sector</h3>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2 relative">
-                                    <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
-                                        Grupo / Especialidad <span className="text-error">*</span>
-                                    </label>
-                                    <select name="group_name" value={formData.group_name} onChange={handleChange} required className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all appearance-none cursor-pointer shadow-inner pr-10">
-                                        <option value="" className="text-tertiary bg-surface">Seleccione grupo...</option>
-                                        <option value="Ciclo basico" className="bg-surface text-[var(--text-primary)]">Ciclo básico</option>
-                                        <option value="TEL" className="bg-surface text-[var(--text-primary)]">TEL</option>
-                                        <option value="TEM" className="bg-surface text-[var(--text-primary)]">TEM</option>
-                                    </select>
-                                    <div className="absolute top-[34px] right-4 pointer-events-none text-tertiary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
-                                </div>
-                                <div className="space-y-2 relative">
-                                    <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
-                                        Año de Cursada <span className="text-error">*</span>
-                                    </label>
-                                    <select name="course" value={formData.course} onChange={handleChange} required className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all appearance-none cursor-pointer shadow-inner pr-10">
-                                        <option value="" className="text-tertiary bg-surface">Seleccione curso...</option>
-                                        {[1, 2, 3, 4, 5, 6, 7].map(c => <option key={c} value={c} className="bg-surface text-[var(--text-primary)]">{c}° Año</option>)}
-                                    </select>
-                                    <div className="absolute top-[34px] right-4 pointer-events-none text-tertiary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
-                                </div>
                                 <div className="md:col-span-2 space-y-2 relative">
                                     <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
-                                        Sector Físico <span className="text-error">*</span>
+                                        Sector Físico / Aula / Taller <span className="text-error">*</span>
                                     </label>
                                     <select name="sector" value={formData.sector} onChange={handleChange} required className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all appearance-none cursor-pointer shadow-inner pr-10">
                                         <option value="" className="text-tertiary bg-surface">Seleccione el sector afectado...</option>
@@ -311,25 +328,6 @@ export default function RedCardForm() {
                                     </select>
                                     <div className="absolute top-[34px] right-4 pointer-events-none text-tertiary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
                                 </div>
-                                <div className="space-y-2 relative">
-                                    <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
-                                        Docente a cargo de la clase (Opcional)
-                                    </label>
-                                    <select
-                                        name="teacher_responsible"
-                                        value={formData.teacher_responsible}
-                                        onChange={handleChange}
-                                        className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all appearance-none cursor-pointer shadow-inner pr-10"
-                                    >
-                                        <option value="" className="text-tertiary bg-surface">Seleccionar docente (Opcional)...</option>
-                                        {teachersList.map(t => (
-                                            <option key={t.id} value={`${t.last_name}, ${t.first_name}`} className="bg-surface text-[var(--text-primary)]">
-                                                {t.last_name}, {t.first_name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <div className="absolute top-[34px] right-4 pointer-events-none text-tertiary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
-                                </div>
                             </div>
                         </section>
 
@@ -337,7 +335,7 @@ export default function RedCardForm() {
                         <section className="space-y-6">
                             <div className="flex items-center gap-3 border-b border-color/40 pb-2 mb-6">
                                 <span className="bg-primary/20 text-primary w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-primary/30">3</span>
-                                <h3 className="text-lg font-bold text-[var(--text-primary)] uppercase tracking-wider">Detalles de la Anomalía</h3>
+                                <h3 className="text-lg font-bold text-[var(--text-primary)] uppercase tracking-wider">Detalles del reporte</h3>
                             </div>
 
                             <div className="space-y-6">
@@ -345,7 +343,7 @@ export default function RedCardForm() {
                                     <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest flex justify-between">
                                         Elemento u objeto afectado <span className="text-error">*</span>
                                     </label>
-                                    <input type="text" name="element" value={formData.element} onChange={handleChange} required placeholder="¿Qué elemento o herramienta presenta la anomalía? Ej. Torno N° 3" className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all placeholder:text-surface-hover shadow-inner" />
+                                    <input type="text" name="element" value={formData.element} onChange={handleChange} required placeholder="¿Qué elemento o herramienta desea reportar? Ej. Torno N° 3" className="w-full bg-main/50 border border-color/50 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:bg-surface focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all placeholder:text-surface-hover shadow-inner" />
                                 </div>
 
                                 <div className="space-y-2">

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { CheckCircle, XCircle, Clock, Trash2, Plus, ListChecks } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Trash2, Plus, ListChecks, Camera } from 'lucide-react';
 import AddSubjectModal from '../components/AddSubjectModal';
 
 const parseProfiles = (orientationStr) => {
@@ -23,7 +23,7 @@ const parseProfiles = (orientationStr) => {
 };
 
 export default function TeacherProfile({ teacherId, onBack }) {
-    const { role, userProfile } = useAuth();
+    const { role, userProfile, refreshProfile } = useAuth();
     const [subjects, setSubjects] = useState([]);
     const [evaluations, setEvaluations] = useState([]);
     const [activities, setActivities] = useState([]);
@@ -32,6 +32,7 @@ export default function TeacherProfile({ teacherId, onBack }) {
     const [profileBasic, setProfileBasic] = useState(null);
     const [isAddSubjectOpen, setIsAddSubjectOpen] = useState(false);
     const [subjectToDelete, setSubjectToDelete] = useState(null);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
     const targetId = teacherId || userProfile?.id;
     const isOwnProfile = targetId === userProfile?.id;
@@ -41,6 +42,48 @@ export default function TeacherProfile({ teacherId, onBack }) {
             fetchMyData();
         }
     }, [targetId]);
+
+    const handleAvatarUpload = async (e) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        const file = e.target.files[0];
+        setUploadingAvatar(true);
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random()}.${fileExt}`;
+            const filePath = `profiles/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('uploads')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data } = supabase.storage.from('uploads').getPublicUrl(filePath);
+            const photoUrl = data.publicUrl;
+
+            // Update database profile
+            const { error: dbError } = await supabase
+                .from('user_profiles')
+                .update({ photo_url: photoUrl })
+                .eq('id', targetId);
+
+            if (dbError) throw dbError;
+
+            // Refresh context if self profile
+            if (isOwnProfile && refreshProfile) {
+                await refreshProfile();
+            }
+
+            // Refresh local state
+            fetchMyData();
+            alert("Foto de perfil actualizada correctamente.");
+        } catch (err) {
+            console.error("Error updating avatar:", err);
+            alert("Hubo un error al actualizar la foto de perfil: " + err.message);
+        } finally {
+            setUploadingAvatar(false);
+        }
+    };
 
     const fetchMyData = async () => {
         setLoading(true);
@@ -149,8 +192,25 @@ export default function TeacherProfile({ teacherId, onBack }) {
                 <div className="absolute top-0 right-1/4 w-64 h-64 bg-primary/10 rounded-full blur-3xl -mt-20 pointer-events-none"></div>
 
                 <div className="relative z-10 flex items-center gap-5">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-[var(--text-primary)] text-2xl font-black shadow-lg shadow-primary/20 shrink-0">
-                        {profileBasic?.first_name?.charAt(0) || 'D'}
+                    <div className="relative group w-16 h-16 rounded-2xl overflow-hidden shadow-lg shadow-primary/20 shrink-0">
+                        {uploadingAvatar ? (
+                            <div className="w-full h-full bg-main/60 flex items-center justify-center">
+                                <svg className="animate-spin h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            </div>
+                        ) : profileBasic?.photo_url ? (
+                            <img src={profileBasic.photo_url} alt={`${profileBasic.first_name} ${profileBasic.last_name}`} className="w-full h-full object-cover border border-primary/20" />
+                        ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-[var(--text-primary)] text-2xl font-black">
+                                {profileBasic?.first_name?.charAt(0) || 'D'}
+                            </div>
+                        )}
+                        {(isOwnProfile || role === 'coordinador' || role === 'gerente') && (
+                            <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white text-[9px] font-bold">
+                                <Camera size={14} className="mb-0.5" />
+                                <span>Subir</span>
+                                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                            </label>
+                        )}
                     </div>
                     <div>
                         <div className="flex items-center gap-3 flex-wrap">

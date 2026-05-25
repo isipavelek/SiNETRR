@@ -347,9 +347,13 @@ export default function TeacherManagement({ onViewTeacher }) {
                         return (
                             <div key={teacher.id} className="glass-card p-4 flex flex-col sm:flex-row items-center justify-between gap-4 hover:border-color-hover transition-all shadow-sm hover:shadow-md border-l-4 border-l-primary">
                                 <div className="flex items-center gap-4 w-full sm:w-1/3">
-                                    <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold shadow-inner shrink-0">
-                                        {teacher.first_name?.[0]}{teacher.last_name?.[0]}
-                                    </div>
+                                    {teacher.photo_url ? (
+                                        <img src={teacher.photo_url} alt={`${teacher.first_name} ${teacher.last_name}`} className="w-10 h-10 rounded-full object-cover shadow-inner shrink-0 border border-primary/10" />
+                                    ) : (
+                                        <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold shadow-inner shrink-0">
+                                            {teacher.first_name?.[0]}{teacher.last_name?.[0]}
+                                        </div>
+                                    )}
                                     <div>
                                         <h3 className="font-bold text-[var(--text-primary)] leading-tight">{teacher.last_name}, {teacher.first_name}</h3>
                                         <div className="flex flex-wrap gap-1 mt-1.5">
@@ -407,9 +411,13 @@ export default function TeacherManagement({ onViewTeacher }) {
                             {/* Header info */}
                             <div className={`p-6 border-color/40 relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${viewMode === 'grid' ? 'border-b' : 'border-b lg:border-b-0 lg:border-r lg:w-[35%] shrink-0'}`}>
                                 <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xl shadow-inner shrink-0">
-                                        {teacher.first_name?.[0]}{teacher.last_name?.[0]}
-                                    </div>
+                                    {teacher.photo_url ? (
+                                        <img src={teacher.photo_url} alt={`${teacher.first_name} ${teacher.last_name}`} className="w-12 h-12 rounded-full object-cover shadow-inner shrink-0 border border-primary/10" />
+                                    ) : (
+                                        <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xl shadow-inner shrink-0">
+                                            {teacher.first_name?.[0]}{teacher.last_name?.[0]}
+                                        </div>
+                                    )}
                                     <div>
                                         <div className="flex items-center gap-3">
                                             <h3 className="font-bold text-xl text-[var(--text-primary)] group-hover:text-primary transition-colors">{teacher.last_name}, {teacher.first_name}</h3>

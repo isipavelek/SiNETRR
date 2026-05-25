@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Save, AlertTriangle, Check } from 'lucide-react';
+import { X, Save, AlertTriangle, Check, Camera } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function EditMyProfileModal({ isOpen, onClose }) {
@@ -14,6 +14,8 @@ export default function EditMyProfileModal({ isOpen, onClose }) {
         confirmPassword: ''
     });
 
+    const [photoFile, setPhotoFile] = useState(null);
+    const [photoPreview, setPhotoPreview] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
@@ -27,12 +29,35 @@ export default function EditMyProfileModal({ isOpen, onClose }) {
                 password: '',
                 confirmPassword: ''
             });
+            setPhotoPreview(userProfile.photo_url || '');
+            setPhotoFile(null);
             setError('');
             setSuccessMsg('');
         }
     }, [isOpen, userProfile, session]);
 
     if (!isOpen || !userProfile) return null;
+
+    const uploadPhoto = async (file) => {
+        if (!file) return null;
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random()}.${fileExt}`;
+            const filePath = `profiles/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('uploads')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data } = supabase.storage.from('uploads').getPublicUrl(filePath);
+            return data.publicUrl;
+        } catch (e) {
+            console.error("Error uploading profile photo:", e);
+            throw new Error("No se pudo subir la foto de perfil. Verifique la conexión o el tamaño del archivo.");
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -51,12 +76,18 @@ export default function EditMyProfileModal({ isOpen, onClose }) {
                 }
             }
 
+            let photoUrl = userProfile.photo_url;
+            if (photoFile) {
+                photoUrl = await uploadPhoto(photoFile);
+            }
+
             // Update profile data in `user_profiles` table
             const { error: profileError } = await supabase
                 .from('user_profiles')
                 .update({
                     first_name: formData.firstName,
-                    last_name: formData.lastName
+                    last_name: formData.lastName,
+                    photo_url: photoUrl
                 })
                 .eq('id', userProfile.id);
 
@@ -117,6 +148,35 @@ export default function EditMyProfileModal({ isOpen, onClose }) {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-[40px] pointer-events-none"></div>
 
                 <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4 relative z-10">
+                    {/* Foto de Perfil */}
+                    <div className="flex flex-col items-center gap-2 mb-2 relative">
+                        <div className="relative group w-24 h-24 rounded-full overflow-hidden border-2 border-primary/20 bg-main/50 shadow-md">
+                            {photoPreview ? (
+                                <img src={photoPreview} alt="Vista previa" className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-secondary font-black text-3xl bg-gradient-to-br from-primary/10 to-accent/10 text-primary">
+                                    {formData.firstName?.charAt(0) || 'U'}
+                                </div>
+                            )}
+                            <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white text-[10px] font-bold">
+                                <Camera size={18} className="mb-1" />
+                                <span>Cambiar Foto</span>
+                                <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    className="hidden" 
+                                    onChange={(e) => {
+                                        if (e.target.files && e.target.files[0]) {
+                                            const file = e.target.files[0];
+                                            setPhotoFile(file);
+                                            setPhotoPreview(URL.createObjectURL(file));
+                                        }
+                                    }}
+                                />
+                            </label>
+                        </div>
+                        <span className="text-[10px] text-tertiary font-medium">PNG, JPG hasta 5MB</span>
+                    </div>
                     {error && (
                         <div className="bg-error/10 border-l-4 border-error text-error text-sm px-4 py-3 rounded-r-lg flex items-center gap-3">
                             <AlertTriangle size={16} className="shrink-0" /> <span className="flex-1">{error}</span>

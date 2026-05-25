@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
-import { X, Save } from 'lucide-react';
+import { X, Save, Camera } from 'lucide-react';
 
 export default function EditTeacherModal({ isOpen, onClose, teacher, onTeacherUpdated }) {
     const [formData, setFormData] = useState({
@@ -20,6 +20,8 @@ export default function EditTeacherModal({ isOpen, onClose, teacher, onTeacherUp
         panolero: false
     });
     const [specialtyArea, setSpecialtyArea] = useState('');
+    const [photoFile, setPhotoFile] = useState(null);
+    const [photoPreview, setPhotoPreview] = useState('');
 
     useEffect(() => {
         const fetchCoordinators = async () => {
@@ -81,6 +83,8 @@ export default function EditTeacherModal({ isOpen, onClose, teacher, onTeacherUp
                 lastName: teacher.last_name || '',
                 coordinatorId: teacher.coordinator_id || ''
             });
+            setPhotoPreview(teacher.photo_url || '');
+            setPhotoFile(null);
             setProfiles(parsedProfiles);
             setSpecialtyArea(parsedSpecialty);
             setError('');
@@ -88,6 +92,27 @@ export default function EditTeacherModal({ isOpen, onClose, teacher, onTeacherUp
     }, [isOpen, teacher]);
 
     if (!isOpen || !teacher) return null;
+
+    const uploadPhoto = async (file) => {
+        if (!file) return null;
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random()}.${fileExt}`;
+            const filePath = `profiles/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('uploads')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data } = supabase.storage.from('uploads').getPublicUrl(filePath);
+            return data.publicUrl;
+        } catch (e) {
+            console.error("Error uploading teacher profile photo:", e);
+            throw new Error("No se pudo subir la foto del docente.");
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -107,13 +132,19 @@ export default function EditTeacherModal({ isOpen, onClose, teacher, onTeacherUp
                 specialtyArea: profiles.especialista ? specialtyArea : ''
             });
 
+            let photoUrl = teacher.photo_url;
+            if (photoFile) {
+                photoUrl = await uploadPhoto(photoFile);
+            }
+
             const { error: updateError } = await supabase
                 .from('user_profiles')
                 .update({
                     first_name: formData.firstName,
                     last_name: formData.lastName,
                     coordinator_id: formData.coordinatorId || null,
-                    orientation: orientationJson
+                    orientation: orientationJson,
+                    photo_url: photoUrl
                 })
                 .eq('id', teacher.id);
 
@@ -139,6 +170,35 @@ export default function EditTeacherModal({ isOpen, onClose, teacher, onTeacherUp
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4 relative">
+                    {/* Foto de Perfil */}
+                    <div className="flex flex-col items-center gap-2 mb-2 relative">
+                        <div className="relative group w-24 h-24 rounded-full overflow-hidden border-2 border-primary/20 bg-main/50 shadow-md">
+                            {photoPreview ? (
+                                <img src={photoPreview} alt="Vista previa" className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-secondary font-black text-3xl bg-gradient-to-br from-primary/10 to-accent/10 text-primary">
+                                    {formData.firstName?.charAt(0) || 'D'}
+                                </div>
+                            )}
+                            <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white text-[10px] font-bold">
+                                <Camera size={18} className="mb-1" />
+                                <span>Cambiar Foto</span>
+                                <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    className="hidden" 
+                                    onChange={(e) => {
+                                        if (e.target.files && e.target.files[0]) {
+                                            const file = e.target.files[0];
+                                            setPhotoFile(file);
+                                            setPhotoPreview(URL.createObjectURL(file));
+                                        }
+                                    }}
+                                />
+                            </label>
+                        </div>
+                        <span className="text-[10px] text-tertiary font-medium">PNG, JPG hasta 5MB</span>
+                    </div>
                     {/* Decorative Background */}
                     <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-[40px] pointer-events-none"></div>
 

@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { 
     Search, Plus, QrCode, PackageOpen, CheckCircle, XCircle, 
     AlertCircle, Calendar, User, Clock, Trash2, Edit, Wrench, 
     History, UserCheck, BookOpen, Layers, Check, ChevronDown, ChevronUp,
-    Upload, FileSpreadsheet
+    Upload, FileSpreadsheet, Camera
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { createNotification } from '../lib/notificationsHelper';
@@ -77,6 +77,9 @@ export default function PanolDashboard() {
     // Forms states
     const [showAddToolForm, setShowAddToolForm] = useState(false);
     const [newTool, setNewTool] = useState({ name: '', code: '', stock: '' });
+    const [toolPhotoFile, setToolPhotoFile] = useState(null);
+    const [uploadingToolId, setUploadingToolId] = useState(null);
+    const toolFileInputRef = useRef(null);
 
     // Excel tools import and seeding states
     const [importingTools, setImportingTools] = useState(false);
@@ -295,18 +298,78 @@ export default function PanolDashboard() {
         }
     };
 
+    const uploadToolPhoto = async (file) => {
+        if (!file) return null;
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random()}.${fileExt}`;
+            const filePath = `tools/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('uploads')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data } = supabase.storage.from('uploads').getPublicUrl(filePath);
+            return data.publicUrl;
+        } catch (e) {
+            console.error("Error uploading tool photo:", e);
+            throw new Error("No se pudo subir la foto de la herramienta.");
+        }
+    };
+
+    const handleToolImageClick = (toolId) => {
+        setUploadingToolId(toolId);
+        if (toolFileInputRef.current) {
+            toolFileInputRef.current.click();
+        }
+    };
+
+    const handleToolImageChange = async (e) => {
+        if (!e.target.files || e.target.files.length === 0 || !uploadingToolId) return;
+        const file = e.target.files[0];
+        try {
+            const imgUrl = await uploadToolPhoto(file);
+            if (!imgUrl) return;
+
+            const { error } = await supabase
+                .from('inventory')
+                .update({ image_url: imgUrl })
+                .eq('id', uploadingToolId);
+
+            if (error) throw error;
+
+            alert("Foto del material actualizada.");
+            fetchInventory();
+        } catch (err) {
+            console.error("Error updating tool image:", err);
+            alert("Error al actualizar la foto: " + err.message);
+        } finally {
+            setUploadingToolId(null);
+            e.target.value = ''; // Reset input
+        }
+    };
+
     // Inventory operations
     const handleAddInventoryItem = async (e) => {
         e.preventDefault();
         try {
+            let imgUrl = null;
+            if (toolPhotoFile) {
+                imgUrl = await uploadToolPhoto(toolPhotoFile);
+            }
+
             const { error } = await supabase.from('inventory').insert([{
                 name: newTool.name,
                 code: newTool.code || null,
-                stock: parseInt(newTool.stock)
+                stock: parseInt(newTool.stock),
+                image_url: imgUrl
             }]);
             if (error) throw error;
             setShowAddToolForm(false);
             setNewTool({ name: '', code: '', stock: '' });
+            setToolPhotoFile(null);
             fetchInventory();
             alert('Material agregado con éxito.');
         } catch (err) {
@@ -3419,20 +3482,34 @@ export default function PanolDashboard() {
                                 <Plus size={20} className="text-primary" />
                                 Ingresar Material al Depósito
                             </h3>
-                            <form onSubmit={handleAddInventoryItem} className="flex flex-col md:flex-row gap-4 items-end relative z-10">
-                                <div className="flex-1 w-full">
-                                    <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest mb-2 block">Nombre Exacto</label>
-                                    <input type="text" value={newTool.name} onChange={e => setNewTool({ ...newTool, name: e.target.value })} placeholder="Ej. Amoladora Bosch 4 1/2" required className="bg-main/50 border-color/50 focus:bg-surface text-[var(--text-primary)]" />
+                            <form onSubmit={handleAddInventoryItem} className="flex flex-col gap-4 relative z-10 w-full">
+                                <div className="flex flex-col md:flex-row gap-4 items-end w-full">
+                                    <div className="flex-1 w-full">
+                                        <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest mb-2 block">Nombre Exacto</label>
+                                        <input type="text" value={newTool.name} onChange={e => setNewTool({ ...newTool, name: e.target.value })} placeholder="Ej. Amoladora Bosch 4 1/2" required className="bg-main/50 border-color/50 focus:bg-surface text-[var(--text-primary)]" />
+                                    </div>
+                                    <div className="w-full md:w-48">
+                                        <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest mb-2 block">Identificador / Código</label>
+                                        <input type="text" value={newTool.code} onChange={e => setNewTool({ ...newTool, code: e.target.value })} placeholder="Opcional..." className="bg-main/50 border-color/50 focus:bg-surface text-[var(--text-primary)]" />
+                                    </div>
+                                    <div className="w-full md:w-32">
+                                        <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest mb-2 block">Stock inicial</label>
+                                        <input type="number" min="0" value={newTool.stock} onChange={e => setNewTool({ ...newTool, stock: e.target.value })} required className="bg-main/50 border-color/50 focus:bg-surface text-center font-bold text-[var(--text-primary)]" />
+                                    </div>
                                 </div>
-                                <div className="w-full md:w-48">
-                                    <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest mb-2 block">Identificador / Código</label>
-                                    <input type="text" value={newTool.code} onChange={e => setNewTool({ ...newTool, code: e.target.value })} placeholder="Opcional..." className="bg-main/50 border-color/50 focus:bg-surface text-[var(--text-primary)]" />
+                                <div className="flex flex-col md:flex-row gap-4 items-center justify-between border-t border-color/30 pt-4 w-full">
+                                    <div className="flex items-center gap-3">
+                                        <label className="text-xs font-bold text-secondary uppercase bg-main/50 border border-color/50 hover:bg-surface-hover hover:border-color px-4 py-2.5 rounded-xl cursor-pointer flex items-center gap-2 transition-all">
+                                            <Upload size={14} className="text-primary" />
+                                            <span>{toolPhotoFile ? toolPhotoFile.name : 'Subir Foto (Opcional)'}</span>
+                                            <input type="file" accept="image/*" className="hidden" onChange={e => setToolPhotoFile(e.target.files[0])} />
+                                        </label>
+                                        {toolPhotoFile && (
+                                            <button type="button" onClick={() => setToolPhotoFile(null)} className="text-xs text-error hover:text-error-hover font-bold">Quitar</button>
+                                        )}
+                                    </div>
+                                    <button type="submit" className="btn btn-primary w-full md:w-auto h-[44px] px-8">Guardar Material</button>
                                 </div>
-                                <div className="w-full md:w-32">
-                                    <label className="text-[11px] font-bold text-tertiary uppercase tracking-widest mb-2 block">Stock inicial</label>
-                                    <input type="number" min="0" value={newTool.stock} onChange={e => setNewTool({ ...newTool, stock: e.target.value })} required className="bg-main/50 border-color/50 focus:bg-surface text-center font-bold text-[var(--text-primary)]" />
-                                </div>
-                                <button type="submit" className="btn btn-primary w-full md:w-auto h-[48px] px-8">Guardar</button>
                             </form>
                         </div>
                     )}
@@ -3492,8 +3569,21 @@ export default function PanolDashboard() {
                                                 <tr key={item.id} className="hover:bg-surface-hover/20 transition-colors group">
                                                     <td className="p-4 pl-6">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="w-10 h-10 rounded-lg bg-main/50 border border-color flex items-center justify-center text-secondary group-hover:bg-primary/10 group-hover:text-primary group-hover:border-primary/20 transition-colors">
-                                                                <PackageOpen size={18} />
+                                                            <div 
+                                                                onClick={() => isPanolOrAdmin && handleToolImageClick(item.id)}
+                                                                className={`w-10 h-10 rounded-lg bg-main/50 border border-color flex items-center justify-center text-secondary overflow-hidden relative transition-all ${isPanolOrAdmin ? 'cursor-pointer hover:border-primary hover:text-primary group/img' : ''}`}
+                                                                title={isPanolOrAdmin ? 'Cambiar foto de herramienta' : ''}
+                                                            >
+                                                                {item.image_url ? (
+                                                                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    <PackageOpen size={18} />
+                                                                )}
+                                                                {isPanolOrAdmin && (
+                                                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity text-white">
+                                                                        <Camera size={14} />
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                             <span className="font-bold text-[15px] text-[var(--text-primary)] tracking-wide">{item.name}</span>
                                                         </div>
@@ -3705,6 +3795,13 @@ export default function PanolDashboard() {
                     </div>
                 </div>
             )}
+            <input 
+                type="file" 
+                ref={toolFileInputRef} 
+                onChange={handleToolImageChange} 
+                accept="image/*" 
+                className="hidden" 
+            />
         </div>
     );
 }
