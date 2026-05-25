@@ -175,10 +175,10 @@ export default function CoursesList({ onSelectSubject }) {
                             onChange={(e) => setCycleFilter(e.target.value)}
                             className="bg-transparent border-none text-xs font-bold text-[var(--text-primary)] cursor-pointer outline-none w-full"
                         >
-                            <option value="all">Especialidad (Todas)</option>
-                            <option value="CB">Ciclo Básico (CB)</option>
-                            <option value="TEL">Electrónica (TEL)</option>
-                            <option value="TEM">Electromecánica (TEM)</option>
+                            <option value="all" className="bg-surface text-[var(--text-primary)] font-semibold">Especialidad (Todas)</option>
+                            <option value="CB" className="bg-surface text-[var(--text-primary)] font-semibold">Ciclo Básico (CB)</option>
+                            <option value="TEL" className="bg-surface text-[var(--text-primary)] font-semibold">Electrónica (TEL)</option>
+                            <option value="TEM" className="bg-surface text-[var(--text-primary)] font-semibold">Electromecánica (TEM)</option>
                         </select>
                     </div>
 
@@ -189,14 +189,14 @@ export default function CoursesList({ onSelectSubject }) {
                             onChange={(e) => setYearFilter(e.target.value)}
                             className="bg-transparent border-none text-xs font-bold text-[var(--text-primary)] cursor-pointer outline-none w-full"
                         >
-                            <option value="all">Año (Todos)</option>
-                            <option value="1">1° Año</option>
-                            <option value="2">2° Año</option>
-                            <option value="3">3° Año</option>
-                            <option value="4">4° Año</option>
-                            <option value="5">5° Año</option>
-                            <option value="6">6° Año</option>
-                            <option value="7">7° Año</option>
+                            <option value="all" className="bg-surface text-[var(--text-primary)] font-semibold">Año (Todos)</option>
+                            <option value="1" className="bg-surface text-[var(--text-primary)] font-semibold">1° Año</option>
+                            <option value="2" className="bg-surface text-[var(--text-primary)] font-semibold">2° Año</option>
+                            <option value="3" className="bg-surface text-[var(--text-primary)] font-semibold">3° Año</option>
+                            <option value="4" className="bg-surface text-[var(--text-primary)] font-semibold">4° Año</option>
+                            <option value="5" className="bg-surface text-[var(--text-primary)] font-semibold">5° Año</option>
+                            <option value="6" className="bg-surface text-[var(--text-primary)] font-semibold">6° Año</option>
+                            <option value="7" className="bg-surface text-[var(--text-primary)] font-semibold">7° Año</option>
                         </select>
                     </div>
 
@@ -207,11 +207,11 @@ export default function CoursesList({ onSelectSubject }) {
                             onChange={(e) => setDivisionFilter(e.target.value)}
                             className="bg-transparent border-none text-xs font-bold text-[var(--text-primary)] cursor-pointer outline-none w-full"
                         >
-                            <option value="all">División (Todas)</option>
-                            <option value="A">División A</option>
-                            <option value="B">División B</option>
-                            <option value="C">División C</option>
-                            <option value="D">División D</option>
+                            <option value="all" className="bg-surface text-[var(--text-primary)] font-semibold">División (Todas)</option>
+                            <option value="A" className="bg-surface text-[var(--text-primary)] font-semibold">División A</option>
+                            <option value="B" className="bg-surface text-[var(--text-primary)] font-semibold">División B</option>
+                            <option value="C" className="bg-surface text-[var(--text-primary)] font-semibold">División C</option>
+                            <option value="D" className="bg-surface text-[var(--text-primary)] font-semibold">División D</option>
                         </select>
                     </div>
                 </div>
