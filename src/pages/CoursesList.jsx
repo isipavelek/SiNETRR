@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { BookOpen, User, CheckCircle, Clock, Search, ChevronRight, LayoutGrid, List } from 'lucide-react';
+import { BookOpen, User, CheckCircle, Clock, Search, ChevronRight, LayoutGrid, List, Filter } from 'lucide-react';
 
 export default function CoursesList({ onSelectSubject }) {
     const { role } = useAuth();
@@ -9,6 +9,9 @@ export default function CoursesList({ onSelectSubject }) {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+    const [cycleFilter, setCycleFilter] = useState('all');
+    const [yearFilter, setYearFilter] = useState('all');
+    const [divisionFilter, setDivisionFilter] = useState('all');
 
     useEffect(() => {
         fetchSubjects();
@@ -42,6 +45,39 @@ export default function CoursesList({ onSelectSubject }) {
         subjects.forEach(sub => {
             const courseName = sub.courses?.name || 'Sin Asignar';
             const level = sub.courses?.level || 99;
+            const upperCourseName = courseName.toUpperCase();
+            
+            // 1. Cycle Filter (CB, TEL, TEM)
+            let matchesCycle = true;
+            if (cycleFilter !== 'all') {
+                const isTEL = upperCourseName.includes('TEL');
+                const isTEM = upperCourseName.includes('TEM');
+                if (cycleFilter === 'CB') {
+                    matchesCycle = !isTEL && !isTEM;
+                } else if (cycleFilter === 'TEL') {
+                    matchesCycle = isTEL;
+                } else if (cycleFilter === 'TEM') {
+                    matchesCycle = isTEM;
+                }
+            }
+
+            // 2. Year Filter (1-7)
+            let matchesYear = true;
+            if (yearFilter !== 'all') {
+                matchesYear = courseName.startsWith(yearFilter) || courseName.includes(yearFilter + '°');
+            }
+
+            // 3. Division Filter (A, B, C, D)
+            let matchesDivision = true;
+            if (divisionFilter !== 'all') {
+                // Ignore TEL / TEM to avoid false positives (e.g. TEM contains E, M)
+                const cleanedName = upperCourseName.replace('TEL', '').replace('TEM', '');
+                matchesDivision = cleanedName.includes(divisionFilter);
+            }
+
+            if (!matchesCycle || !matchesYear || !matchesDivision) {
+                return;
+            }
             
             if (!groups[courseName]) {
                 groups[courseName] = {
@@ -73,7 +109,7 @@ export default function CoursesList({ onSelectSubject }) {
                 }
                 return a.name.localeCompare(b.name);
             });
-    }, [subjects, searchQuery]);
+    }, [subjects, searchQuery, cycleFilter, yearFilter, divisionFilter]);
 
     if (loading) {
         return (
@@ -121,6 +157,62 @@ export default function CoursesList({ onSelectSubject }) {
                         >
                             <List size={18} />
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Filters Bar */}
+            <div className="glass-card p-4 flex flex-col md:flex-row gap-4 justify-between items-center shadow-sm">
+                <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
+                    <Filter size={16} />
+                    <span>Filtros de Curso</span>
+                </div>
+                <div className="flex gap-4 w-full md:w-auto flex-wrap md:flex-nowrap">
+                    {/* Ciclo / Especialidad */}
+                    <div className="flex items-center gap-2 bg-main/50 border border-color px-3 py-1.5 rounded-xl text-xs font-semibold shadow-inner grow md:grow-0">
+                        <select
+                            value={cycleFilter}
+                            onChange={(e) => setCycleFilter(e.target.value)}
+                            className="bg-transparent border-none text-xs font-bold text-[var(--text-primary)] cursor-pointer outline-none w-full"
+                        >
+                            <option value="all">Especialidad (Todas)</option>
+                            <option value="CB">Ciclo Básico (CB)</option>
+                            <option value="TEL">Electrónica (TEL)</option>
+                            <option value="TEM">Electromecánica (TEM)</option>
+                        </select>
+                    </div>
+
+                    {/* Año / Curso */}
+                    <div className="flex items-center gap-2 bg-main/50 border border-color px-3 py-1.5 rounded-xl text-xs font-semibold shadow-inner grow md:grow-0">
+                        <select
+                            value={yearFilter}
+                            onChange={(e) => setYearFilter(e.target.value)}
+                            className="bg-transparent border-none text-xs font-bold text-[var(--text-primary)] cursor-pointer outline-none w-full"
+                        >
+                            <option value="all">Año (Todos)</option>
+                            <option value="1">1° Año</option>
+                            <option value="2">2° Año</option>
+                            <option value="3">3° Año</option>
+                            <option value="4">4° Año</option>
+                            <option value="5">5° Año</option>
+                            <option value="6">6° Año</option>
+                            <option value="7">7° Año</option>
+                        </select>
+                    </div>
+
+                    {/* División */}
+                    <div className="flex items-center gap-2 bg-main/50 border border-color px-3 py-1.5 rounded-xl text-xs font-semibold shadow-inner grow md:grow-0">
+                        <select
+                            value={divisionFilter}
+                            onChange={(e) => setDivisionFilter(e.target.value)}
+                            className="bg-transparent border-none text-xs font-bold text-[var(--text-primary)] cursor-pointer outline-none w-full"
+                        >
+                            <option value="all">División (Todas)</option>
+                            <option value="A">División A</option>
+                            <option value="B">División B</option>
+                            <option value="C">División C</option>
+                            <option value="D">División D</option>
+                        </select>
                     </div>
                 </div>
             </div>
