@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { createNotification } from '../lib/notificationsHelper';
+import ProjectSubmissionDetail from '../components/ProjectSubmissionDetail';
+import productCatalog from '../data/product_catalog.json';
 import { 
     ArrowLeft, Plus, CheckCircle, Clock, Trash2, Calendar, FileText, 
     AlertTriangle, ShoppingBag, FolderOpen, Send, X, ExternalLink, Info
@@ -12,11 +15,12 @@ export default function SubjectDetailView({ subjectId, onBack }) {
     const [subject, setSubject] = useState(null);
     const [projects, setProjects] = useState([]);
     const [purchases, setPurchases] = useState([]);
+    const [eventsList, setEventsList] = useState([]);
     const [loading, setLoading] = useState(true);
 
     // Modal state - Projects
     const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
-    const [projectForm, setProjectForm] = useState({ name: '', description: '' });
+    const [projectForm, setProjectForm] = useState({ name: '', description: '', eventId: '' });
     const [submittingProject, setSubmittingProject] = useState(false);
 
     // Modal state - Purchases
@@ -25,20 +29,65 @@ export default function SubjectDetailView({ subjectId, onBack }) {
         projectId: '',
         priority: 'Media',
         justification: '',
-        items: [{ name: '', quantity: 1, unit: 'unidades', estimated_price: '', link: '' }]
+        items: [{ name: '', quantity: 1, unit: 'unidades', estimated_price: '', link: '', code: '', type: '' }]
     });
     const [submittingPurchase, setSubmittingPurchase] = useState(false);
     
     // View purchase items modal
     const [viewingPurchase, setViewingPurchase] = useState(null);
 
+    // View submissions details modal state
+    const [selectedProjectForSubmissions, setSelectedProjectForSubmissions] = useState(null);
+
+    // Product catalog search state
+    const [activeSearchIdx, setActiveSearchIdx] = useState(null);
+    const [catalogItems, setCatalogItems] = useState(productCatalog);
+
     const isTeacher = role === 'docente';
+
+    useEffect(() => {
+        const fetchCatalogFromSupabase = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('product_catalog')
+                    .select('*')
+                    .order('code');
+                if (error) throw error;
+                if (data && data.length > 0) {
+                    const mapped = data.map(it => ({
+                        code: it.code,
+                        type: it.type,
+                        description: it.description,
+                        unit: it.unit,
+                        unitDescription: it.unit_description || it.unit
+                    }));
+                    setCatalogItems(mapped);
+                }
+            } catch (err) {
+                console.warn('Failed to load database catalog in SubjectDetailView, using offline fallback:', err);
+            }
+        };
+        fetchCatalogFromSupabase();
+    }, []);
 
     useEffect(() => {
         if (subjectId) {
             fetchSubjectData();
+            fetchEvents();
         }
     }, [subjectId]);
+
+    const fetchEvents = async () => {
+        try {
+            const { data } = await supabase
+                .from('events')
+                .select('id, name, status')
+                .order('name');
+            setEventsList(data || []);
+        } catch (err) {
+            console.error('Error fetching events list:', err);
+        }
+    };
 
     const fetchSubjectData = async () => {
         setLoading(true);
@@ -52,10 +101,10 @@ export default function SubjectDetailView({ subjectId, onBack }) {
             if (subError) throw subError;
             setSubject(subData);
 
-            // 2. Fetch Projects
+            // 2. Fetch Projects joined with events
             const { data: projData, error: projError } = await supabase
                 .from('subject_projects')
-                .select('*')
+                .select('*, events(name)')
                 .eq('subject_id', subjectId)
                 .order('created_at', { ascending: false });
             if (projError) throw projError;
@@ -89,6 +138,7 @@ export default function SubjectDetailView({ subjectId, onBack }) {
                     subject_id: subjectId,
                     name: projectForm.name,
                     description: projectForm.description,
+                    event_id: projectForm.eventId || null,
                     status: 'Activo'
                 }]);
             if (error) throw error;
@@ -96,7 +146,7 @@ export default function SubjectDetailView({ subjectId, onBack }) {
             // Refresh
             await fetchSubjectData();
             setIsProjectModalOpen(false);
-            setProjectForm({ name: '', description: '' });
+            setProjectForm({ name: '', description: '', eventId: '' });
         } catch (err) {
             alert('Error al crear el proyecto: ' + err.message);
         } finally {
@@ -123,7 +173,7 @@ export default function SubjectDetailView({ subjectId, onBack }) {
     const handleAddItem = () => {
         setPurchaseForm(prev => ({
             ...prev,
-            items: [...prev.items, { name: '', quantity: 1, unit: 'unidades', estimated_price: '', link: '' }]
+            items: [...prev.items, { name: '', quantity: 1, unit: 'unidades', estimated_price: '', link: '', code: '', type: '' }]
         }));
     };
 
@@ -191,7 +241,7 @@ export default function SubjectDetailView({ subjectId, onBack }) {
                 projectId: '',
                 priority: 'Media',
                 justification: '',
-                items: [{ name: '', quantity: 1, unit: 'unidades', estimated_price: '', link: '' }]
+                items: [{ name: '', quantity: 1, unit: 'unidades', estimated_price: '', link: '', code: '', type: '' }]
             });
         } catch (err) {
             alert('Error al enviar el pedido: ' + err.message);
@@ -278,26 +328,49 @@ export default function SubjectDetailView({ subjectId, onBack }) {
                                 </div>
                             ) : (
                                 projects.map(proj => (
-                                    <div key={proj.id} className="p-4 bg-main/30 border border-color/30 rounded-xl space-y-2 relative overflow-hidden group">
-                                        <div className="flex justify-between items-start gap-2">
-                                            <h4 className="font-extrabold text-sm text-[var(--text-primary)] truncate">{proj.name}</h4>
-                                            <button
-                                                disabled={!isTeacher}
-                                                onClick={() => toggleProjectStatus(proj.id, proj.status)}
-                                                className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase border ${
-                                                    proj.status === 'Activo' 
-                                                        ? 'bg-success/15 text-success border-success/35 hover:bg-success hover:text-white cursor-pointer' 
-                                                        : 'bg-secondary/20 text-tertiary border-color hover:bg-success hover:text-white cursor-pointer'
-                                                } transition-all`}
-                                                title={isTeacher ? "Cambiar estado" : ""}
-                                            >
-                                                {proj.status}
-                                            </button>
+                                    <div key={proj.id} className="p-4 bg-main/30 border border-color/30 rounded-xl space-y-2.5 relative overflow-hidden group flex flex-col justify-between shadow-sm">
+                                        <div className="space-y-1.5">
+                                            <div className="flex justify-between items-start gap-2">
+                                                <h4 className="font-extrabold text-sm text-[var(--text-primary)] truncate">{proj.name}</h4>
+                                                <button
+                                                    disabled={!isTeacher}
+                                                    onClick={() => toggleProjectStatus(proj.id, proj.status)}
+                                                    className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase border ${
+                                                        proj.status === 'Activo' 
+                                                            ? 'bg-success/15 text-success border-success/35 hover:bg-success hover:text-white cursor-pointer' 
+                                                            : 'bg-secondary/20 text-tertiary border-color hover:bg-success hover:text-white cursor-pointer'
+                                                    } transition-all`}
+                                                    title={isTeacher ? "Cambiar estado" : ""}
+                                                >
+                                                    {proj.status}
+                                                </button>
+                                            </div>
+                                            {proj.events && (
+                                                <span className="text-[10px] font-bold text-primary block">
+                                                    📅 Evento: {proj.events.name}
+                                                </span>
+                                            )}
+                                            {proj.description && (
+                                                <p className="text-xs text-secondary font-medium line-clamp-3 leading-relaxed">
+                                                    {proj.description}
+                                                </p>
+                                            )}
                                         </div>
-                                        {proj.description && (
-                                            <p className="text-xs text-secondary font-medium line-clamp-3 leading-relaxed">
-                                                {proj.description}
-                                            </p>
+
+                                        {proj.event_id && (
+                                            <button
+                                                onClick={() => setSelectedProjectForSubmissions({
+                                                    ...proj,
+                                                    subjects: {
+                                                        name: subject.name,
+                                                        courses: { name: subject.courses?.name }
+                                                    }
+                                                })}
+                                                className="w-full mt-2 py-2 px-3 bg-primary/10 hover:bg-primary hover:text-white border border-primary/20 rounded-xl text-xs font-bold text-primary transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                                            >
+                                                <FileText size={13} />
+                                                <span>Entregas & Galería</span>
+                                            </button>
                                         )}
                                     </div>
                                 ))
@@ -403,9 +476,9 @@ export default function SubjectDetailView({ subjectId, onBack }) {
             </div>
 
             {/* Modal: New Project */}
-            {isProjectModalOpen && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex justify-center items-center p-4 animate-fade-in-up">
-                    <div className="bg-surface border border-color rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            {isProjectModalOpen && createPortal(
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex justify-center items-start md:items-center p-4 overflow-y-auto animate-fade-in-up">
+                    <div className="bg-surface border border-color rounded-2xl w-full max-w-md overflow-hidden shadow-2xl my-auto">
                         <div className="flex justify-between items-center p-6 border-b border-color/50 bg-surface-hover/50">
                             <h3 className="font-bold text-xl text-[var(--text-primary)] tracking-tight">Nuevo Proyecto Escolar</h3>
                             <button onClick={() => setIsProjectModalOpen(false)} className="text-secondary hover:text-[var(--text-primary)] transition-colors">
@@ -414,7 +487,7 @@ export default function SubjectDetailView({ subjectId, onBack }) {
                         </div>
                         <form onSubmit={handleCreateProject} className="p-6 space-y-4">
                             <div>
-                                <label className="text-sm font-semibold mb-1 block text-secondary">Nombre del Proyecto</label>
+                                <label className="text-sm font-semibold mb-1 block text-secondary">Nombre del Proyecto *</label>
                                 <input
                                     type="text"
                                     required
@@ -425,12 +498,25 @@ export default function SubjectDetailView({ subjectId, onBack }) {
                                 />
                             </div>
                             <div>
+                                <label className="text-sm font-semibold mb-1 block text-secondary">Asociar a Evento Especial (Opcional)</label>
+                                <select
+                                    value={projectForm.eventId}
+                                    onChange={e => setProjectForm(prev => ({ ...prev, eventId: e.target.value }))}
+                                    className="bg-main border-color/50 text-[var(--text-primary)] w-full rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-primary"
+                                >
+                                    <option value="" className="bg-surface text-secondary">Sin Evento</option>
+                                    {eventsList.map(ev => (
+                                        <option key={ev.id} value={ev.id} className="bg-surface text-[var(--text-primary)]">{ev.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
                                 <label className="text-sm font-semibold mb-1 block text-secondary">Descripción / Objetivos</label>
                                 <textarea
                                     value={projectForm.description}
                                     onChange={e => setProjectForm(prev => ({ ...prev, description: e.target.value }))}
                                     placeholder="Detalla los objetivos del proyecto y qué divisiones participan..."
-                                    rows={4}
+                                    rows={3}
                                     className="bg-main border-color/50 text-[var(--text-primary)] w-full rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-primary"
                                 />
                             </div>
@@ -443,13 +529,14 @@ export default function SubjectDetailView({ subjectId, onBack }) {
                             </button>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Modal: New Purchase Request */}
-            {isPurchaseModalOpen && (
-                <div className="fixed inset-0 bg-black/55 backdrop-blur-sm z-[9999] flex justify-center items-center p-4 overflow-y-auto">
-                    <div className="bg-surface border border-color rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl my-8 flex flex-col max-h-[90vh]">
+            {isPurchaseModalOpen && createPortal(
+                <div className="fixed inset-0 bg-black/55 backdrop-blur-sm z-[9999] flex justify-center items-start md:items-center p-4 overflow-y-auto">
+                    <div className="bg-surface border border-color rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl my-auto flex flex-col max-h-[90vh]">
                         <div className="flex justify-between items-center p-6 border-b border-color/50 bg-surface-hover/50 shrink-0">
                             <div>
                                 <h3 className="font-bold text-xl text-[var(--text-primary)] tracking-tight">Cargar Pedido de Materiales</h3>
@@ -504,78 +591,146 @@ export default function SubjectDetailView({ subjectId, onBack }) {
                                     </button>
                                 </div>
 
-                                <div className="space-y-3.5">
+                                <div className="space-y-5">
                                     {purchaseForm.items.map((item, idx) => (
-                                        <div key={idx} className="grid grid-cols-12 gap-3 p-4 bg-main/20 border border-color/30 rounded-xl relative items-end group">
-                                            {purchaseForm.items.length > 1 && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleRemoveItem(idx)}
-                                                    className="absolute top-2 right-2 text-error/60 hover:text-error transition-colors p-1"
-                                                    title="Eliminar fila"
-                                                >
-                                                    <Trash2 size={15} />
-                                                </button>
-                                            )}
-
-                                            <div className="col-span-12 md:col-span-4">
-                                                <label className="text-xs font-bold text-secondary mb-1 block">Nombre / Descripción *</label>
-                                                <input
-                                                    type="text"
-                                                    required
-                                                    placeholder="Ej: Tester digital, LED rojo 5mm"
-                                                    value={item.name}
-                                                    onChange={e => handleItemChange(idx, 'name', e.target.value)}
-                                                    className="bg-main border-color/40 text-[var(--text-primary)] text-xs w-full rounded-lg px-2.5 py-2 outline-none focus:ring-1 focus:ring-primary"
-                                                />
+                                        <div key={idx} className="p-5 bg-main/30 border border-color/40 rounded-2xl relative space-y-4 shadow-sm group">
+                                            {/* Item Header with Delete Button */}
+                                            <div className="flex justify-between items-center border-b border-color/20 pb-2.5">
+                                                <span className="text-xs font-black text-primary uppercase tracking-wider">Material #{idx + 1}</span>
+                                                {purchaseForm.items.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemoveItem(idx)}
+                                                        className="text-error hover:text-error/80 transition-colors flex items-center gap-1.5 text-xs font-extrabold"
+                                                        title="Eliminar material"
+                                                    >
+                                                        <Trash2 size={14} className="shrink-0" />
+                                                        <span>Eliminar</span>
+                                                    </button>
+                                                )}
                                             </div>
 
-                                            <div className="col-span-4 md:col-span-2">
-                                                <label className="text-xs font-bold text-secondary mb-1 block">Cantidad *</label>
-                                                <input
-                                                    type="number"
-                                                    required
-                                                    min="1"
-                                                    placeholder="10"
-                                                    value={item.quantity}
-                                                    onChange={e => handleItemChange(idx, 'quantity', parseInt(e.target.value) || 1)}
-                                                    className="bg-main border-color/40 text-[var(--text-primary)] text-xs w-full rounded-lg px-2.5 py-2 outline-none focus:ring-1 focus:ring-primary"
-                                                />
-                                            </div>
+                                            <div className="grid grid-cols-12 gap-4">
+                                                {/* Nombre / Descripción */}
+                                                <div className="col-span-12 md:col-span-8 relative">
+                                                    <label className="text-xs font-extrabold text-secondary mb-1.5 block">Nombre / Descripción *</label>
+                                                    <input
+                                                        type="text"
+                                                        required
+                                                        placeholder="Buscar en el catálogo..."
+                                                        value={item.name}
+                                                        onFocus={() => setActiveSearchIdx(idx)}
+                                                        onBlur={() => {
+                                                            setTimeout(() => {
+                                                                setActiveSearchIdx(null);
+                                                            }, 250);
+                                                        }}
+                                                        onChange={e => {
+                                                            handleItemChange(idx, 'name', e.target.value);
+                                                            // reset code if user types custom
+                                                            if (item.code) {
+                                                                handleItemChange(idx, 'code', '');
+                                                                handleItemChange(idx, 'type', '');
+                                                            }
+                                                        }}
+                                                        className="bg-main border border-color/40 text-[var(--text-primary)] text-sm w-full rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-primary font-semibold transition-all shadow-inner"
+                                                    />
+                                                    {activeSearchIdx === idx && (
+                                                        (() => {
+                                                            const query = item.name || '';
+                                                            const filtered = catalogItems.filter(p => 
+                                                                p.description.toLowerCase().includes(query.toLowerCase()) || 
+                                                                p.code.toLowerCase().includes(query.toLowerCase())
+                                                            ).slice(0, 8);
 
-                                            <div className="col-span-4 md:col-span-2">
-                                                <label className="text-xs font-bold text-secondary mb-1 block">Medida</label>
-                                                <input
-                                                    type="text"
-                                                    placeholder="unidades, mts"
-                                                    value={item.unit}
-                                                    onChange={e => handleItemChange(idx, 'unit', e.target.value)}
-                                                    className="bg-main border-color/40 text-[var(--text-primary)] text-xs w-full rounded-lg px-2.5 py-2 outline-none focus:ring-1 focus:ring-primary"
-                                                />
-                                            </div>
+                                                            if (filtered.length === 0) return null;
 
-                                            <div className="col-span-4 md:col-span-2">
-                                                <label className="text-xs font-bold text-secondary mb-1 block">Costo Unit Est. *</label>
-                                                <input
-                                                    type="number"
-                                                    required
-                                                    min="0"
-                                                    placeholder="$"
-                                                    value={item.estimated_price}
-                                                    onChange={e => handleItemChange(idx, 'estimated_price', parseFloat(e.target.value) || '')}
-                                                    className="bg-main border-color/40 text-[var(--text-primary)] text-xs w-full rounded-lg px-2.5 py-2 outline-none focus:ring-1 focus:ring-primary"
-                                                />
-                                            </div>
+                                                            return (
+                                                                <div className="absolute left-0 right-0 top-full mt-1 bg-surface border border-color rounded-xl shadow-2xl z-[9999] max-h-48 overflow-y-auto divide-y divide-color/30 font-sans">
+                                                                    {filtered.map(p => (
+                                                                        <button
+                                                                            key={p.code}
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                handleItemChange(idx, 'name', p.description);
+                                                                                handleItemChange(idx, 'unit', p.unitDescription || p.unit);
+                                                                                handleItemChange(idx, 'code', p.code);
+                                                                                handleItemChange(idx, 'type', p.type);
+                                                                                setActiveSearchIdx(null);
+                                                                            }}
+                                                                            className="w-full text-left px-3 py-2.5 text-xs hover:bg-surface-hover flex items-center justify-between gap-2 transition-colors duration-150 cursor-pointer"
+                                                                        >
+                                                                            <div className="min-w-0 flex items-center">
+                                                                                <span className="font-mono text-primary font-extrabold text-[10px] mr-1.5 bg-primary/10 border border-primary/20 px-1 py-0.5 rounded shrink-0">
+                                                                                    {p.code}
+                                                                                </span>
+                                                                                <span className="text-[var(--text-primary)] font-semibold truncate">{p.description}</span>
+                                                                            </div>
+                                                                            <span className="text-[9px] font-black text-secondary uppercase bg-secondary/15 px-1.5 py-0.5 rounded shrink-0">
+                                                                                {p.unit}
+                                                                            </span>
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            );
+                                                        })()
+                                                    )}
+                                                </div>
 
-                                            <div className="col-span-12 md:col-span-2">
-                                                <label className="text-xs font-bold text-secondary mb-1 block">Link Ref. (Opcional)</label>
-                                                <input
-                                                    type="url"
-                                                    placeholder="https://..."
-                                                    value={item.link}
-                                                    onChange={e => handleItemChange(idx, 'link', e.target.value)}
-                                                    className="bg-main border-color/40 text-[var(--text-primary)] text-xs w-full rounded-lg px-2.5 py-2 outline-none focus:ring-1 focus:ring-primary"
-                                                />
+                                                {/* Medida */}
+                                                <div className="col-span-12 md:col-span-4">
+                                                    <label className="text-xs font-extrabold text-secondary mb-1.5 block">Medida</label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Ej: Unidad, Metro..."
+                                                        value={item.unit}
+                                                        onChange={e => handleItemChange(idx, 'unit', e.target.value)}
+                                                        className="bg-main border border-color/40 text-[var(--text-primary)] text-sm w-full rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-primary font-semibold transition-all shadow-inner"
+                                                    />
+                                                </div>
+
+                                                {/* Cantidad */}
+                                                <div className="col-span-4 md:col-span-3">
+                                                    <label className="text-xs font-extrabold text-secondary mb-1.5 block">Cantidad *</label>
+                                                    <input
+                                                        type="number"
+                                                        required
+                                                        min="1"
+                                                        placeholder="1"
+                                                        value={item.quantity}
+                                                        onChange={e => handleItemChange(idx, 'quantity', parseInt(e.target.value) || 1)}
+                                                        className="bg-main border border-color/40 text-[var(--text-primary)] text-sm w-full rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-primary font-semibold transition-all shadow-inner"
+                                                    />
+                                                </div>
+
+                                                {/* Costo Unit Est. * */}
+                                                <div className="col-span-4 md:col-span-3">
+                                                    <label className="text-xs font-extrabold text-secondary mb-1.5 block">Costo Unit Est. *</label>
+                                                    <div className="relative">
+                                                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-secondary font-bold font-mono">$</span>
+                                                        <input
+                                                            type="number"
+                                                            required
+                                                            min="0"
+                                                            placeholder="0"
+                                                            value={item.estimated_price}
+                                                            onChange={e => handleItemChange(idx, 'estimated_price', parseFloat(e.target.value) || '')}
+                                                            className="bg-main border border-color/40 text-[var(--text-primary)] text-sm w-full rounded-xl pl-7 pr-3.5 py-2.5 outline-none focus:ring-2 focus:ring-primary font-semibold font-mono transition-all shadow-inner"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Link Ref. (Opcional) */}
+                                                <div className="col-span-12 md:col-span-6">
+                                                    <label className="text-xs font-extrabold text-secondary mb-1.5 block">Link Ref. (Opcional)</label>
+                                                    <input
+                                                        type="url"
+                                                        placeholder="https://..."
+                                                        value={item.link}
+                                                        onChange={e => handleItemChange(idx, 'link', e.target.value)}
+                                                        className="bg-main border border-color/40 text-[var(--text-primary)] text-sm w-full rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-primary font-semibold transition-all shadow-inner"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
@@ -609,13 +764,14 @@ export default function SubjectDetailView({ subjectId, onBack }) {
                             </div>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Modal: View Purchase Detail */}
-            {viewingPurchase && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex justify-center items-center p-4 animate-fade-in-up">
-                    <div className="bg-surface border border-color rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+            {viewingPurchase && createPortal(
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex justify-center items-start md:items-center p-4 overflow-y-auto animate-fade-in-up">
+                    <div className="bg-surface border border-color rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl my-auto flex flex-col max-h-[90vh]">
                         <div className="flex justify-between items-center p-6 border-b border-color/50 bg-surface-hover/50 shrink-0">
                             <div>
                                 <h3 className="font-extrabold text-xl text-[var(--text-primary)] tracking-tight">Detalle de Solicitud de Compra</h3>
@@ -625,7 +781,7 @@ export default function SubjectDetailView({ subjectId, onBack }) {
                                 <X size={22} />
                             </button>
                         </div>
-                        <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
+                        <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1 font-sans">
                             
                             <div className="grid grid-cols-3 gap-4">
                                 <div className="p-3 bg-main/30 border border-color rounded-xl text-center">
@@ -662,13 +818,20 @@ export default function SubjectDetailView({ subjectId, onBack }) {
                                                 <th className="p-3 text-center">Referencia</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-color/30 font-medium">
+                                        <tbody className="divide-y divide-color/30 font-medium text-[var(--text-primary)]">
                                             {viewingPurchase.items.map((item, index) => {
                                                 const cost = parseFloat(item.estimated_price) || 0;
                                                 const subtotal = cost * item.quantity;
                                                 return (
                                                     <tr key={index} className="hover:bg-surface-hover/20">
-                                                        <td className="p-3 text-[var(--text-primary)] font-bold">{item.name}</td>
+                                                        <td className="p-3 text-[var(--text-primary)] font-bold flex items-center flex-wrap gap-1">
+                                                            {item.code && (
+                                                                <span className="font-mono text-primary font-extrabold text-[9px] px-1 py-0.5 bg-primary/10 border border-primary/20 rounded">
+                                                                    {item.code}
+                                                                </span>
+                                                            )}
+                                                            <span>{item.name}</span>
+                                                        </td>
                                                         <td className="p-3 text-center text-secondary">{item.quantity} {item.unit}</td>
                                                         <td className="p-3 text-right font-mono">${cost.toLocaleString('es-AR')}</td>
                                                         <td className="p-3 text-right font-mono font-bold text-[var(--text-primary)]">${subtotal.toLocaleString('es-AR')}</td>
@@ -712,7 +875,19 @@ export default function SubjectDetailView({ subjectId, onBack }) {
 
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Submissions Detail Modal */}
+            {selectedProjectForSubmissions && (
+                <ProjectSubmissionDetail 
+                    project={selectedProjectForSubmissions} 
+                    onClose={() => {
+                        setSelectedProjectForSubmissions(null);
+                        fetchSubjectData();
+                    }}
+                />
             )}
 
         </div>

@@ -1,0 +1,345 @@
+[
+  {
+    "type": "BU",
+    "code": "BU850003",
+    "description": "Ampliación edificios - Obra civil",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "BU",
+    "code": "BU760003",
+    "description": "ESTANTERÍAS PARA PICKING",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME020007",
+    "description": "Osciloscopio Tektronik",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "BU",
+    "code": "BU760005",
+    "description": "Mobiliario de guardado",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "HE",
+    "code": "HE030178",
+    "description": "Morsa Rectificada Apertura 125 Mm Vertex Vmv-40",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "HE",
+    "code": "HE010030",
+    "description": "Taladro Dewalt",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "IN",
+    "code": "IN080110",
+    "description": "Grilon Macizo Barra 110 x 110 mm.",
+    "unit": "MT",
+    "unitDescription": "Metro"
+  },
+  {
+    "type": "ME",
+    "code": "ME030041",
+    "description": "Juego De Paralelas Largo 150 Mm 18 Piezas Vertex Vp-118a",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "IN",
+    "code": "IN080117",
+    "description": "Aluminio Redondo Macizo Ø75 mm",
+    "unit": "MT",
+    "unitDescription": "Metro"
+  },
+  {
+    "type": "IN",
+    "code": "IN080046",
+    "description": "Grilon Redondo Mazizo Ø 100 mm",
+    "unit": "MT",
+    "unitDescription": "Metro"
+  },
+  {
+    "type": "HE",
+    "code": "HE030176",
+    "description": "Contrapunta liviana Torno MT4 punta estandar RC4",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "IN",
+    "code": "IN080102",
+    "description": "Aluminio Redondo Macizo Ø 65 mm.",
+    "unit": "MT",
+    "unitDescription": "Metro"
+  },
+  {
+    "type": "BU",
+    "code": "BU710000",
+    "description": "JLG 41 AM",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "IN",
+    "code": "IN030011",
+    "description": "Electrodo E 6013 Diam 2,5 Mm",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "HE",
+    "code": "HE030179",
+    "description": "Mandril Autoajustable 1-16 Jt6 Fresadora/agujereadora/torno",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME030042",
+    "description": "Palpador Seteador Busca Centro Luminoso Sonoro Vertex Vps20b",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "HE",
+    "code": "HE030180",
+    "description": "Contrapunta Punto Giratorio Cono Morse 4 Mt4 Para Torno",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "IN",
+    "code": "IN080126",
+    "description": "Fresa Metal Duro Revestida Plana 16mm 4 Filos",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "HE",
+    "code": "HE030181",
+    "description": "Contrapunta Punto Giratorio Cono Morse 2 Mt2 Para Torno",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "HE",
+    "code": "HE030155",
+    "description": "Torcha MIG",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "HE",
+    "code": "HE030143",
+    "description": "JUEGO DE MACHOS PARA ROSCAR",
+    "unit": "M12 x 1.75 mm",
+    "unitDescription": "UN"
+  },
+  {
+    "type": "IN",
+    "code": "IN080130",
+    "description": "Acople rápido Racor M6 p/impresoras 3D",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "IN",
+    "code": "IN080131",
+    "description": "Acople rápido Racor M10 p/impresora 3D",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "IN",
+    "code": "IN080132",
+    "description": "Pico/Nozzle 0,4mm Bronce o similar",
+    "unit": "p/impresoras 3D",
+    "unitDescription": "UN"
+  },
+  {
+    "type": "IN",
+    "code": "IN080133",
+    "description": "Tubo teflón Diam ext 4mm, diám interno 2mm por metro p/impresoras 3D",
+    "unit": "MT",
+    "unitDescription": "Metro"
+  },
+  {
+    "type": "IN",
+    "code": "IN080134",
+    "description": "Hotend p/impresoras 3D solo",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME010001",
+    "description": "Amperimetro Analogico",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME010002",
+    "description": "Frecuenciometro De Lengüeta",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME010003",
+    "description": "Luxometro Unit Ut 380",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME010004",
+    "description": "Multiamperimetro Mt4W",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME010005",
+    "description": "Pinza Amperometrica",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME010006",
+    "description": "Voltimetro Amperimetro Wattimetro Cofimero",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME010007",
+    "description": "Voltimetro Analogico 500V Ac",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME020001",
+    "description": "Analizador De Espectro Siglent",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME020002",
+    "description": "Generador De Funciones Owon",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME020003",
+    "description": "Generador De Funciones Tti",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME020004",
+    "description": "Generador De Radio Frecuencia Rigol",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME020005",
+    "description": "Multimetro Fluke",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME020006",
+    "description": "Multimetro Unit",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME030001",
+    "description": "Alesometro Analogico",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME030002",
+    "description": "Balanza De Baño 180Kg",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME030003",
+    "description": "Balanza De Mano 50Kg",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME030004",
+    "description": "Base De Comparador",
+    "unit": "Horex",
+    "unitDescription": "UN"
+  },
+  {
+    "type": "ME",
+    "code": "ME030005",
+    "description": "Base Magnética Para Micrometro Con Indicador Moore",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME030006",
+    "description": "Base Magnetica Para Reloj Comparador",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME030007",
+    "description": "Block De Galgas 005 A 50Mm",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME030008",
+    "description": "Calibre 500 Mm",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME030009",
+    "description": "Calibre De Pie Analogico 190 A 30Cm Moore",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  },
+  {
+    "type": "ME",
+    "code": "ME030010",
+    "description": "Calibre De Profundidad Analogico 150Mm Horex",
+    "unit": "UN",
+    "unitDescription": "Unidad"
+  }
+]

@@ -1,11 +1,29 @@
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { createNotification } from '../lib/notificationsHelper';
+import productCatalog from '../data/product_catalog.json';
 import { 
     ShoppingBag, Search, Filter, Info, FileText, CheckCircle, Clock, 
-    X, AlertTriangle, Send, Edit3, Plus, Trash2, ExternalLink
+    X, AlertTriangle, Send, Edit3, Plus, Trash2, ExternalLink, Grid, Copy
 } from 'lucide-react';
+
+const getProductTypeInfo = (type) => {
+    const rawType = (type || '').trim().toUpperCase();
+    switch (rawType) {
+        case 'BU':
+            return { code: 'BU', name: 'Bienes de uso' };
+        case 'HE':
+            return { code: 'HE', name: 'Herramental' };
+        case 'IN':
+            return { code: 'IN', name: 'Insumos' };
+        case 'ME':
+            return { code: 'ME', name: 'Instrumentos de medición' };
+        default:
+            return { code: 'NS', name: 'Insumos (N/S)' };
+    }
+};
 
 export default function PurchasesManagement() {
     const { userProfile, role } = useAuth();
@@ -26,6 +44,36 @@ export default function PurchasesManagement() {
         items: []
     });
     const [saving, setSaving] = useState(false);
+    const [copyTargetPurchase, setCopyTargetPurchase] = useState(null);
+
+    // Product catalog search state
+    const [activeSearchIdx, setActiveSearchIdx] = useState(null);
+    const [catalogItems, setCatalogItems] = useState(productCatalog);
+
+    useEffect(() => {
+        const fetchCatalogFromSupabase = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('product_catalog')
+                    .select('*')
+                    .order('code');
+                if (error) throw error;
+                if (data && data.length > 0) {
+                    const mapped = data.map(it => ({
+                        code: it.code,
+                        type: it.type,
+                        description: it.description,
+                        unit: it.unit,
+                        unitDescription: it.unit_description || it.unit
+                    }));
+                    setCatalogItems(mapped);
+                }
+            } catch (err) {
+                console.warn('Failed to load database catalog in PurchasesManagement, using offline fallback:', err);
+            }
+        };
+        fetchCatalogFromSupabase();
+    }, []);
 
     useEffect(() => {
         fetchPurchases();
@@ -112,7 +160,7 @@ export default function PurchasesManagement() {
     const handleEditAddItem = () => {
         setEditForm(prev => ({
             ...prev,
-            items: [...prev.items, { name: '', quantity: 1, unit: 'unidades', estimated_price: 0, link: '' }]
+            items: [...prev.items, { name: '', quantity: 1, unit: 'unidades', estimated_price: 0, link: '', code: '', type: '' }]
         }));
     };
 
@@ -178,6 +226,21 @@ export default function PurchasesManagement() {
             alert('Error al guardar cambios: ' + err.message);
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleDeletePurchase = async (purchaseId) => {
+        if (!confirm('¿Estás seguro de eliminar este pedido de compra por completo?')) return;
+        try {
+            const { error } = await supabase
+                .from('material_purchases')
+                .delete()
+                .eq('id', purchaseId);
+            if (error) throw error;
+            alert('Pedido de compra eliminado correctamente.');
+            await fetchPurchases();
+        } catch (err) {
+            alert('Error al eliminar el pedido: ' + err.message);
         }
     };
 
@@ -348,13 +411,30 @@ export default function PurchasesManagement() {
                                             </span>
                                         </td>
                                         <td className="p-4 text-right pr-6">
-                                            <button
-                                                onClick={() => handleOpenEdit(p)}
-                                                className="px-3 py-2 bg-surface hover:bg-primary/10 border border-color hover:border-primary/30 rounded-xl text-xs font-bold text-secondary hover:text-primary transition-all flex items-center justify-center gap-1 shadow-sm ml-auto cursor-pointer"
-                                            >
-                                                <Edit3 size={13} />
-                                                <span>Procesar</span>
-                                            </button>
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={() => setCopyTargetPurchase(p)}
+                                                    className="px-3 py-2 bg-accent/10 hover:bg-accent hover:text-white border border-accent/20 rounded-xl text-xs font-bold text-accent transition-all flex items-center justify-center gap-1 shadow-sm cursor-pointer"
+                                                    title="Ver tabla tipo Excel para copiar"
+                                                >
+                                                    <Grid size={13} />
+                                                    <span>Copiar Excel</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => handleOpenEdit(p)}
+                                                    className="px-3 py-2 bg-surface hover:bg-primary/10 border border-color hover:border-primary/30 rounded-xl text-xs font-bold text-secondary hover:text-primary transition-all flex items-center justify-center gap-1 shadow-sm cursor-pointer"
+                                                >
+                                                    <Edit3 size={13} />
+                                                    <span>Procesar</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeletePurchase(p.id)}
+                                                    className="p-2 bg-surface hover:bg-error/15 border border-color hover:border-error/30 rounded-xl text-secondary hover:text-error transition-all shadow-sm cursor-pointer"
+                                                    title="Eliminar Pedido"
+                                                >
+                                                    <Trash2 size={13} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -365,9 +445,9 @@ export default function PurchasesManagement() {
             </div>
 
             {/* Modal: Process / Edit Purchase Order */}
-            {editingPurchase && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex justify-center items-center p-4 overflow-y-auto">
-                    <div className="bg-surface border border-color rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl my-8 flex flex-col max-h-[90vh]">
+            {editingPurchase && createPortal(
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex justify-center items-start md:items-center p-4 overflow-y-auto">
+                    <div className="bg-surface border border-color rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl my-auto flex flex-col max-h-[90vh]">
                         <div className="flex justify-between items-center p-6 border-b border-color/50 bg-surface-hover/50 shrink-0">
                             <div>
                                 <h3 className="font-extrabold text-xl text-[var(--text-primary)] tracking-tight">Editar & Procesar Pedido</h3>
@@ -416,84 +496,213 @@ export default function PurchasesManagement() {
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center border-b border-color pb-2">
                                     <h4 className="font-bold text-sm text-[var(--text-primary)]">Lista de Materiales Solicitados</h4>
-                                    <button
-                                        type="button"
-                                        onClick={handleEditAddItem}
-                                        className="px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1"
-                                    >
-                                        <Plus size={14} />
-                                        Agregar Material
-                                    </button>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const headers = ["Tipo de Producto", "Descripción del Tipo de Producto", "Codigo del producto original", "Descripción", "Observaciones", "Cantidad", "Unidad de medida", "Precio Unitario"];
+                                                const rows = editForm.items.map(item => {
+                                                    const typeInfo = getProductTypeInfo(item.type);
+                                                    return [
+                                                        typeInfo.code,
+                                                        typeInfo.name,
+                                                        item.code || '',
+                                                        item.name || '',
+                                                        editForm.coordinationNotes || '',
+                                                        item.quantity || '',
+                                                        item.unit || '',
+                                                        item.estimated_price || ''
+                                                    ];
+                                                });
+                                                const tsvContent = [headers, ...rows].map(row => row.join('\t')).join('\n');
+                                                navigator.clipboard.writeText(tsvContent)
+                                                    .then(() => alert('¡Datos copiados al portapapeles! Puedes pegarlos en Excel.'))
+                                                    .catch(err => alert('Error al copiar: ' + err.message));
+                                            }}
+                                            className="px-3 py-1.5 bg-accent/10 text-accent hover:bg-accent hover:text-white border border-accent/20 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                                            title="Copiar materiales para Excel con cabeceras"
+                                        >
+                                            <Copy size={13} />
+                                            <span>Copiar Excel</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const rows = editForm.items.map(item => {
+                                                    const typeInfo = getProductTypeInfo(item.type);
+                                                    return [
+                                                        typeInfo.code,
+                                                        typeInfo.name,
+                                                        item.code || '',
+                                                        item.name || '',
+                                                        editForm.coordinationNotes || '',
+                                                        item.quantity || '',
+                                                        item.unit || '',
+                                                        item.estimated_price || ''
+                                                    ];
+                                                });
+                                                const tsvContent = rows.map(row => row.join('\t')).join('\n');
+                                                navigator.clipboard.writeText(tsvContent)
+                                                    .then(() => alert('¡Datos copiados para Softland (sin cabeceras)!'))
+                                                    .catch(err => alert('Error al copiar: ' + err.message));
+                                            }}
+                                            className="px-3 py-1.5 bg-emerald-600/10 text-emerald-600 hover:bg-emerald-600 hover:text-white border border-emerald-600/20 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                                            title="Copiar materiales para Softland sin cabeceras"
+                                        >
+                                            <Send size={13} />
+                                            <span>Copiar para Softland</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleEditAddItem}
+                                            className="px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1"
+                                        >
+                                            <Plus size={14} />
+                                            Agregar Material
+                                        </button>
+                                    </div>
                                 </div>
 
-                                <div className="space-y-3">
+                                <div className="space-y-5">
                                     {editForm.items.map((item, idx) => (
-                                        <div key={idx} className="grid grid-cols-12 gap-3 p-4 bg-main/20 border border-color/30 rounded-xl relative items-end">
-                                            {editForm.items.length > 1 && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleEditRemoveItem(idx)}
-                                                    className="absolute top-2 right-2 text-error/60 hover:text-error transition-colors p-1"
-                                                    title="Quitar"
-                                                >
-                                                    <Trash2 size={15} />
-                                                </button>
-                                            )}
-
-                                            <div className="col-span-12 md:col-span-4">
-                                                <label className="text-xs font-bold text-secondary mb-1 block">Nombre / Descripción *</label>
-                                                <input
-                                                    type="text"
-                                                    required
-                                                    value={item.name}
-                                                    onChange={e => handleEditItemChange(idx, 'name', e.target.value)}
-                                                    className="bg-surface border-color/40 text-[var(--text-primary)] text-xs w-full rounded-lg px-2.5 py-2 outline-none focus:ring-1 focus:ring-primary"
-                                                />
+                                        <div key={idx} className="p-5 bg-main/30 border border-color/40 rounded-2xl relative space-y-4 shadow-sm group">
+                                            {/* Item Header with Delete Button */}
+                                            <div className="flex justify-between items-center border-b border-color/20 pb-2.5">
+                                                <span className="text-xs font-black text-primary uppercase tracking-wider">Material #{idx + 1}</span>
+                                                {editForm.items.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleEditRemoveItem(idx)}
+                                                        className="text-error hover:text-error/80 transition-colors flex items-center gap-1.5 text-xs font-extrabold"
+                                                        title="Quitar material"
+                                                    >
+                                                        <Trash2 size={14} className="shrink-0" />
+                                                        <span>Eliminar</span>
+                                                    </button>
+                                                )}
                                             </div>
 
-                                            <div className="col-span-4 md:col-span-2">
-                                                <label className="text-xs font-bold text-secondary mb-1 block">Cantidad *</label>
-                                                <input
-                                                    type="number"
-                                                    required
-                                                    min="1"
-                                                    value={item.quantity}
-                                                    onChange={e => handleEditItemChange(idx, 'quantity', parseInt(e.target.value) || 1)}
-                                                    className="bg-surface border-color/40 text-[var(--text-primary)] text-xs w-full rounded-lg px-2.5 py-2 outline-none focus:ring-1 focus:ring-primary"
-                                                />
-                                            </div>
+                                            <div className="grid grid-cols-12 gap-4">
+                                                {/* Nombre / Descripción */}
+                                                <div className="col-span-12 md:col-span-8 relative">
+                                                    <label className="text-xs font-extrabold text-secondary mb-1.5 block">Nombre / Descripción *</label>
+                                                    <input
+                                                        type="text"
+                                                        required
+                                                        placeholder="Buscar en el catálogo..."
+                                                        value={item.name}
+                                                        onFocus={() => setActiveSearchIdx(idx)}
+                                                        onBlur={() => {
+                                                            setTimeout(() => {
+                                                                setActiveSearchIdx(null);
+                                                            }, 250);
+                                                        }}
+                                                        onChange={e => {
+                                                            handleEditItemChange(idx, 'name', e.target.value);
+                                                            // reset code if user types custom
+                                                            if (item.code) {
+                                                                handleEditItemChange(idx, 'code', '');
+                                                                handleEditItemChange(idx, 'type', '');
+                                                            }
+                                                        }}
+                                                        className="bg-surface border border-color/40 text-[var(--text-primary)] text-sm w-full rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-primary font-semibold transition-all shadow-inner"
+                                                    />
+                                                    {activeSearchIdx === idx && (
+                                                        (() => {
+                                                            const query = item.name || '';
+                                                            const filtered = catalogItems.filter(p => 
+                                                                p.description.toLowerCase().includes(query.toLowerCase()) || 
+                                                                p.code.toLowerCase().includes(query.toLowerCase())
+                                                            ).slice(0, 8);
 
-                                            <div className="col-span-4 md:col-span-2">
-                                                <label className="text-xs font-bold text-secondary mb-1 block">Medida</label>
-                                                <input
-                                                    type="text"
-                                                    value={item.unit}
-                                                    onChange={e => handleEditItemChange(idx, 'unit', e.target.value)}
-                                                    className="bg-surface border-color/40 text-[var(--text-primary)] text-xs w-full rounded-lg px-2.5 py-2 outline-none focus:ring-1 focus:ring-primary"
-                                                />
-                                            </div>
+                                                            if (filtered.length === 0) return null;
 
-                                            <div className="col-span-4 md:col-span-2">
-                                                <label className="text-xs font-bold text-secondary mb-1 block">Costo Unit Est. *</label>
-                                                <input
-                                                    type="number"
-                                                    required
-                                                    min="0"
-                                                    value={item.estimated_price}
-                                                    onChange={e => handleEditItemChange(idx, 'estimated_price', parseFloat(e.target.value) || 0)}
-                                                    className="bg-surface border-color/40 text-[var(--text-primary)] text-xs w-full rounded-lg px-2.5 py-2 outline-none focus:ring-1 focus:ring-primary"
-                                                />
-                                            </div>
+                                                            return (
+                                                                <div className="absolute left-0 right-0 top-full mt-1 bg-surface border border-color rounded-xl shadow-2xl z-[9999] max-h-48 overflow-y-auto divide-y divide-color/30 font-sans">
+                                                                    {filtered.map(p => (
+                                                                        <button
+                                                                            key={p.code}
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                handleEditItemChange(idx, 'name', p.description);
+                                                                                handleEditItemChange(idx, 'unit', p.unitDescription || p.unit);
+                                                                                handleEditItemChange(idx, 'code', p.code);
+                                                                                handleEditItemChange(idx, 'type', p.type);
+                                                                                setActiveSearchIdx(null);
+                                                                            }}
+                                                                            className="w-full text-left px-3 py-2.5 text-xs hover:bg-surface-hover flex items-center justify-between gap-2 transition-colors duration-150 cursor-pointer"
+                                                                        >
+                                                                            <div className="min-w-0 flex items-center text-left">
+                                                                                <span className="font-mono text-primary font-extrabold text-[10px] mr-1.5 bg-primary/10 border border-primary/20 px-1 py-0.5 rounded shrink-0">
+                                                                                    {p.code}
+                                                                                </span>
+                                                                                <span className="text-[var(--text-primary)] font-semibold truncate">{p.description}</span>
+                                                                            </div>
+                                                                            <span className="text-[9px] font-black text-secondary uppercase bg-secondary/15 px-1.5 py-0.5 rounded shrink-0">
+                                                                                {p.unit}
+                                                                            </span>
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            );
+                                                        })()
+                                                    )}
+                                                </div>
 
-                                            <div className="col-span-12 md:col-span-2">
-                                                <label className="text-xs font-bold text-secondary mb-1 block">Link Ref.</label>
-                                                <input
-                                                    type="url"
-                                                    placeholder="https://..."
-                                                    value={item.link || ''}
-                                                    onChange={e => handleEditItemChange(idx, 'link', e.target.value)}
-                                                    className="bg-surface border-color/40 text-[var(--text-primary)] text-xs w-full rounded-lg px-2.5 py-2 outline-none focus:ring-1 focus:ring-primary"
-                                                />
+                                                {/* Medida */}
+                                                <div className="col-span-12 md:col-span-4">
+                                                    <label className="text-xs font-extrabold text-secondary mb-1.5 block">Medida</label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Ej: Unidad, Metro..."
+                                                        value={item.unit}
+                                                        onChange={e => handleEditItemChange(idx, 'unit', e.target.value)}
+                                                        className="bg-surface border border-color/40 text-[var(--text-primary)] text-sm w-full rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-primary font-semibold transition-all shadow-inner"
+                                                    />
+                                                </div>
+
+                                                {/* Cantidad */}
+                                                <div className="col-span-4 md:col-span-3">
+                                                    <label className="text-xs font-extrabold text-secondary mb-1.5 block">Cantidad *</label>
+                                                    <input
+                                                        type="number"
+                                                        required
+                                                        min="1"
+                                                        placeholder="1"
+                                                        value={item.quantity}
+                                                        onChange={e => handleEditItemChange(idx, 'quantity', parseInt(e.target.value) || 1)}
+                                                        className="bg-surface border border-color/40 text-[var(--text-primary)] text-sm w-full rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-primary font-semibold transition-all shadow-inner"
+                                                    />
+                                                </div>
+
+                                                {/* Costo Unit Est. * */}
+                                                <div className="col-span-4 md:col-span-3">
+                                                    <label className="text-xs font-extrabold text-secondary mb-1.5 block">Costo Unit Est. *</label>
+                                                    <div className="relative">
+                                                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-secondary font-bold font-mono">$</span>
+                                                        <input
+                                                            type="number"
+                                                            required
+                                                            min="0"
+                                                            placeholder="0"
+                                                            value={item.estimated_price}
+                                                            onChange={e => handleEditItemChange(idx, 'estimated_price', parseFloat(e.target.value) || 0)}
+                                                            className="bg-surface border border-color/40 text-[var(--text-primary)] text-sm w-full rounded-xl pl-7 pr-3.5 py-2.5 outline-none focus:ring-2 focus:ring-primary font-semibold font-mono transition-all shadow-inner"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Link Ref. */}
+                                                <div className="col-span-12 md:col-span-6">
+                                                    <label className="text-xs font-extrabold text-secondary mb-1.5 block">Link Ref.</label>
+                                                    <input
+                                                        type="url"
+                                                        placeholder="https://..."
+                                                        value={item.link || ''}
+                                                        onChange={e => handleEditItemChange(idx, 'link', e.target.value)}
+                                                        className="bg-surface border border-color/40 text-[var(--text-primary)] text-sm w-full rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-primary font-semibold transition-all shadow-inner"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
@@ -536,7 +745,151 @@ export default function PurchasesManagement() {
                             </div>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Modal: Excel Copy Helper */}
+            {copyTargetPurchase && createPortal(
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex justify-center items-start md:items-center p-4 overflow-y-auto">
+                    <div className="bg-surface border border-color rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl my-auto flex flex-col max-h-[90vh]">
+                        <div className="flex justify-between items-center p-6 border-b border-color/50 bg-surface-hover/50 shrink-0">
+                            <div>
+                                <h3 className="font-extrabold text-xl text-[var(--text-primary)] tracking-tight flex items-center gap-2">
+                                    <Grid className="text-accent" size={22} />
+                                    <span>Vista de Copiado Rápido (Estilo Excel)</span>
+                                </h3>
+                                <p className="text-xs text-secondary mt-1">
+                                    Esta tabla está optimizada para copiar y pegar directamente en Microsoft Excel, Google Sheets o sistemas de compras.
+                                </p>
+                            </div>
+                            <button onClick={() => setCopyTargetPurchase(null)} className="text-secondary hover:text-[var(--text-primary)] transition-colors">
+                                <X size={22} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1 font-sans">
+                            
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-primary/5 p-4 border border-primary/20 rounded-xl">
+                                <div>
+                                    <span className="text-xs font-bold text-primary block uppercase tracking-wider">Copiado Automático en 1 Clic</span>
+                                    <p className="text-xs text-secondary mt-0.5">Haz clic en el botón para copiar los datos con formato de celdas compatible con Excel.</p>
+                                </div>
+                                <div className="flex gap-2 w-full sm:w-auto flex-wrap">
+                                    <button
+                                        onClick={() => {
+                                            const headers = ["Tipo de Producto", "Descripción del Tipo de Producto", "Codigo del producto original", "Descripción", "Observaciones", "Cantidad", "Unidad de medida", "Precio Unitario"];
+                                            const rows = copyTargetPurchase.items.map(item => {
+                                                const typeInfo = getProductTypeInfo(item.type);
+                                                return [
+                                                    typeInfo.code,
+                                                    typeInfo.name,
+                                                    item.code || '',
+                                                    item.name || '',
+                                                    copyTargetPurchase.coordination_notes || '',
+                                                    item.quantity || '',
+                                                    item.unit || '',
+                                                    item.estimated_price || ''
+                                                ];
+                                            });
+                                            const tsvContent = [headers, ...rows].map(row => row.join('\t')).join('\n');
+                                            navigator.clipboard.writeText(tsvContent)
+                                                .then(() => alert('¡Datos copiados al portapapeles! Puedes pegarlos en Excel o Google Sheets con Ctrl+V.'))
+                                                .catch(err => alert('Error al copiar: ' + err.message));
+                                        }}
+                                        className="btn btn-primary px-5 py-2.5 rounded-xl font-bold flex items-center gap-1.5 shadow-md cursor-pointer self-stretch sm:self-auto text-xs"
+                                    >
+                                        <Copy size={15} />
+                                        <span>Copiar Tabla Completa</span>
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            const rows = copyTargetPurchase.items.map(item => {
+                                                const typeInfo = getProductTypeInfo(item.type);
+                                                return [
+                                                    typeInfo.code,
+                                                    typeInfo.name,
+                                                    item.code || '',
+                                                    item.name || '',
+                                                    copyTargetPurchase.coordination_notes || '',
+                                                    item.quantity || '',
+                                                    item.unit || '',
+                                                    item.estimated_price || ''
+                                                ];
+                                            });
+                                            const tsvContent = rows.map(row => row.join('\t')).join('\n');
+                                            navigator.clipboard.writeText(tsvContent)
+                                                .then(() => alert('¡Datos copiados para Softland (sin cabeceras)!'))
+                                                .catch(err => alert('Error al copiar: ' + err.message));
+                                        }}
+                                        className="btn bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-1.5 shadow-md cursor-pointer self-stretch sm:self-auto text-xs border-none"
+                                    >
+                                        <Send size={15} />
+                                        <span>Copiar para Softland</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <span className="text-xs font-extrabold text-secondary uppercase tracking-wider block">Tabla de datos</span>
+                                <div className="border border-color rounded-xl overflow-hidden shadow-sm bg-main/10 max-h-72 overflow-y-auto custom-scrollbar">
+                                    <table className="w-full text-left border-collapse text-xs select-all bg-surface">
+                                        <thead>
+                                            <tr className="bg-surface-hover/80 border-b border-color text-secondary font-bold sticky top-0 z-10">
+                                                <th className="p-3 border-r border-color/40">Tipo de Producto</th>
+                                                <th className="p-3 border-r border-color/40">Descripción del Tipo de Producto</th>
+                                                <th className="p-3 border-r border-color/40">Codigo del producto original</th>
+                                                <th className="p-3 border-r border-color/40">Descripción</th>
+                                                <th className="p-3 border-r border-color/40">Observaciones</th>
+                                                <th className="p-3 border-r border-color/40 text-center">Cantidad</th>
+                                                <th className="p-3 border-r border-color/40">Unidad de medida</th>
+                                                <th className="p-3">Precio Unitario</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-color/30 font-medium text-[var(--text-primary)]">
+                                            {copyTargetPurchase.items.map((item, index) => {
+                                                const typeInfo = getProductTypeInfo(item.type);
+                                                return (
+                                                    <tr key={index} className="hover:bg-surface-hover/40 transition-colors">
+                                                        <td className="p-3 border-r border-color/40 font-mono font-bold text-center select-all">
+                                                            {typeInfo.code}
+                                                        </td>
+                                                        <td className="p-3 border-r border-color/40 select-all">
+                                                            {typeInfo.name}
+                                                        </td>
+                                                        <td className="p-3 border-r border-color/40 font-mono font-bold text-primary select-all">
+                                                            {item.code || '-'}
+                                                        </td>
+                                                        <td className="p-3 border-r border-color/40 select-all">
+                                                            {item.name}
+                                                        </td>
+                                                        <td className="p-3 border-r border-color/40 select-all italic text-secondary">
+                                                            {copyTargetPurchase.coordination_notes || '-'}
+                                                        </td>
+                                                        <td className="p-3 border-r border-color/40 text-center select-all">
+                                                            {item.quantity}
+                                                        </td>
+                                                        <td className="p-3 border-r border-color/40 select-all">
+                                                            {item.unit}
+                                                        </td>
+                                                        <td className="p-3 font-mono select-all">
+                                                            ${item.estimated_price}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <span className="text-[10px] text-tertiary block mt-1 italic">
+                                    * Consejo: También puedes hacer clic y arrastrar con el mouse sobre la tabla para seleccionar filas específicas y copiarlas.
+                                </span>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>,
+                document.body
             )}
 
         </div>

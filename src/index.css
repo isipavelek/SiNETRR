@@ -131,7 +131,7 @@
   }
 
   .btn-secondary {
-    @apply bg-[var(--bg-surface-hover)] text-[var(--text-primary)] border border-color hover:bg-color;
+    @apply bg-[var(--bg-surface-hover)] text-[var(--text-primary)] border border-color hover:bg-surface;
   }
 
   /* Cards & Containers */

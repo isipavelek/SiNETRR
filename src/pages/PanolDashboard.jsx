@@ -282,7 +282,7 @@ export default function PanolDashboard() {
             const { data, error } = await supabase
                 .from('tool_order_items')
                 .select(`
-                    quantity, returned_quantity, return_comment, status, created_at,
+                    id, quantity, returned_quantity, return_comment, status, created_at,
                     order:order_id (
                         date, student_name, course, division, subject_or_project, status,
                         teacher:teacher_id (first_name, last_name)
@@ -296,6 +296,29 @@ export default function PanolDashboard() {
             console.error('Error fetching tool history:', err);
         } finally {
             setLoadingHistory(false);
+        }
+    };
+
+    const handleDeleteHistoryItem = async (itemId) => {
+        if (!confirm('¿Estás seguro de que deseas eliminar permanentemente este registro de préstamo del historial?')) return;
+        
+        try {
+            const { error } = await supabase
+                .from('tool_order_items')
+                .delete()
+                .eq('id', itemId);
+                
+            if (error) throw error;
+            
+            alert('Registro eliminado correctamente.');
+            if (selectedTraceToolId) {
+                fetchToolHistory(selectedTraceToolId);
+            }
+            fetchInventory();
+            fetchOrders();
+        } catch (err) {
+            console.error('Error deleting history item:', err);
+            alert('Error al eliminar el registro: ' + err.message);
         }
     };
 
@@ -3707,13 +3730,24 @@ export default function PanolDashboard() {
                                             <div className="bg-surface-hover/30 p-4 border border-color/40 rounded-2xl max-w-2xl space-y-2">
                                                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-color/30 pb-2">
                                                     <span className="text-xs font-black text-primary font-mono">{hist.order?.date.split('-').reverse().join('/')}</span>
-                                                    <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                                                        hist.status === 'Devuelto' ? 'bg-success/15 text-success' :
-                                                        hist.status === 'En Reparacion' ? 'bg-error/15 text-error' :
-                                                        'bg-warning/15 text-warning'
-                                                    }`}>
-                                                        {hist.status === 'En Reparacion' ? 'Devuelto a Reparación' : hist.status}
-                                                    </span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                                                            hist.status === 'Devuelto' ? 'bg-success/15 text-success' :
+                                                            hist.status === 'En Reparacion' ? 'bg-error/15 text-error' :
+                                                            'bg-warning/15 text-warning'
+                                                        }`}>
+                                                            {hist.status === 'En Reparacion' ? 'Devuelto a Reparación' : hist.status}
+                                                        </span>
+                                                        {(role === 'coordinador' || role === 'gerente') && (
+                                                            <button
+                                                                onClick={() => handleDeleteHistoryItem(hist.id)}
+                                                                className="p-1 text-tertiary hover:text-error hover:bg-error/10 rounded-lg transition-all cursor-pointer"
+                                                                title="Eliminar este registro del historial"
+                                                            >
+                                                                <Trash2 size={13} />
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
 
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
