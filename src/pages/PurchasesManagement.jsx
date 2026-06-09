@@ -41,6 +41,7 @@ export default function PurchasesManagement() {
         status: '',
         priority: '',
         coordinationNotes: '',
+        softlandNumber: '',
         items: []
     });
     const [saving, setSaving] = useState(false);
@@ -144,6 +145,7 @@ export default function PurchasesManagement() {
             status: p.status,
             priority: p.priority,
             coordinationNotes: p.coordination_notes || '',
+            softlandNumber: p.softland_number || '',
             items: p.items ? JSON.parse(JSON.stringify(p.items)) : [] // Deep copy
         });
     };
@@ -197,6 +199,7 @@ export default function PurchasesManagement() {
                     status: editForm.status,
                     priority: editForm.priority,
                     coordination_notes: editForm.coordinationNotes,
+                    softland_number: editForm.softlandNumber,
                     items: editForm.items,
                     total_cost: total
                 })
@@ -358,6 +361,7 @@ export default function PurchasesManagement() {
                                     <th className="p-4 font-bold">Materiales</th>
                                     <th className="p-4 font-bold">Costo Est.</th>
                                     <th className="p-4 font-bold">Prioridad</th>
+                                    <th className="p-4 font-bold">N° SoftLand</th>
                                     <th className="p-4 font-bold">Estado</th>
                                     <th className="p-4 font-bold text-right pr-6">Acciones</th>
                                 </tr>
@@ -398,6 +402,15 @@ export default function PurchasesManagement() {
                                             }`}>
                                                 {p.priority}
                                             </span>
+                                        </td>
+                                        <td className="p-4">
+                                            {p.softland_number ? (
+                                                <span className="font-mono text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded-md border border-primary/20">
+                                                    {p.softland_number}
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs text-tertiary italic">-</span>
+                                            )}
                                         </td>
                                         <td className="p-4">
                                             <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border tracking-wide uppercase ${
@@ -462,8 +475,8 @@ export default function PurchasesManagement() {
 
                         <form onSubmit={handleSavePurchase} className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
                             
-                            {/* Status & Priority Control */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-main/30 p-4 border border-color/40 rounded-xl">
+                            {/* Status, Priority & SoftLand Number Control */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-main/30 p-4 border border-color/40 rounded-xl">
                                 <div>
                                     <label className="text-sm font-semibold mb-1 block text-secondary">Estado del Pedido</label>
                                     <select
@@ -489,6 +502,16 @@ export default function PurchasesManagement() {
                                         <option value="Media">Media</option>
                                         <option value="Alta">Alta</option>
                                     </select>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-semibold mb-1 block text-secondary">N° SOLP / OCDC (SoftLand)</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Ej: 4500012345"
+                                        value={editForm.softlandNumber}
+                                        onChange={e => setEditForm(prev => ({ ...prev, softlandNumber: e.target.value }))}
+                                        className="bg-surface border-color/50 text-[var(--text-primary)] w-full rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-primary"
+                                    />
                                 </div>
                             </div>
 
