@@ -572,6 +572,7 @@ export default function TeacherProfile({ teacherId, onBack, onSelectSubject }) {
                             </div>
                         )}
                     </div>
+                </section>
             </div>
 
             {/* Comentarios y Evaluaciones de Coordinación */}
