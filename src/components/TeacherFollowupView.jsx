@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
     Search, User, Plus, Trash2, CheckCircle2, AlertTriangle, 
@@ -567,8 +568,8 @@ export default function TeacherFollowupView({
             </div>
 
             {/* Modal de Gestión de Clasificaciones (Roles) */}
-            {isManageRolesOpen && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex justify-center items-center p-4 animate-fade-in-up">
+            {isManageRolesOpen && createPortal(
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex justify-center items-start pt-20 md:pt-32 p-4 animate-fade-in-up">
                     <div className="bg-surface border border-color rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative">
                         {/* Header */}
                         <div className="flex justify-between items-center p-5 border-b border-color/50 bg-surface-hover/30">
@@ -648,7 +649,8 @@ export default function TeacherFollowupView({
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
