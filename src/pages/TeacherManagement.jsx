@@ -45,6 +45,7 @@ export default function TeacherManagement({ onViewTeacher }) {
     const [currentSubTab, setCurrentSubTab] = useState('trajectory'); // 'trajectory' or 'followup'
     const [followups, setFollowups] = useState([]);
     const [coordinators, setCoordinators] = useState([]);
+    const [rolesCatalog, setRolesCatalog] = useState([]);
 
     useEffect(() => {
         localStorage.setItem('teachersViewMode', viewMode);
@@ -128,12 +129,32 @@ export default function TeacherManagement({ onViewTeacher }) {
                 followupsData = local ? JSON.parse(local) : [];
             }
 
+            // 7. Fetch Custom Roles Catalog
+            let catalogRoles = [];
+            try {
+                const { data, error } = await supabase
+                    .from('teacher_roles_catalog')
+                    .select('*')
+                    .order('name');
+                if (error) throw error;
+                catalogRoles = data || [];
+            } catch (err) {
+                console.warn('Falla al cargar teacher_roles_catalog desde base de datos, usando default:', err);
+                const local = localStorage.getItem('etrr_teacher_roles_catalog');
+                catalogRoles = local ? JSON.parse(local) : [
+                    { id: '1', name: 'SPOT' },
+                    { id: '2', name: 'Part Time' },
+                    { id: '3', name: 'Full Time' }
+                ];
+            }
+
             setTeachers(teachersData);
             setSubjects(subjectsData);
             setSubjectsCatalog(catalogData || []);
             setTeacherActivities(tActivitiesData || []);
             setCoordinators(coordinatorsData);
             setFollowups(followupsData);
+            setRolesCatalog(catalogRoles);
         } catch (err) {
             console.error('Error fetching data:', err);
         } finally {
@@ -165,6 +186,45 @@ export default function TeacherManagement({ onViewTeacher }) {
             if (error) throw error;
         } catch (err) {
             console.error('Error al guardar seguimiento en Supabase, persistido en localStorage de respaldo:', err);
+        }
+    };
+
+    const handleAddRoleCatalog = async (newRoleName) => {
+        const cleanName = newRoleName.trim();
+        if (!cleanName) return;
+        
+        const newRole = { id: Math.random().toString(36).substr(2, 9), name: cleanName };
+        const nextCatalog = [...rolesCatalog, newRole];
+        setRolesCatalog(nextCatalog);
+        localStorage.setItem('etrr_teacher_roles_catalog', JSON.stringify(nextCatalog));
+
+        try {
+            const { error } = await supabase.from('teacher_roles_catalog').insert([{ name: cleanName }]);
+            if (error) throw error;
+            // Reload from DB to get actual UUIDs
+            const { data } = await supabase.from('teacher_roles_catalog').select('*').order('name');
+            if (data) {
+                setRolesCatalog(data);
+                localStorage.setItem('etrr_teacher_roles_catalog', JSON.stringify(data));
+            }
+        } catch (e) {
+            console.error("DB Error adding role:", e);
+        }
+    };
+
+    const handleDeleteRoleCatalog = async (roleId, roleName) => {
+        const nextCatalog = rolesCatalog.filter(r => r.id !== roleId && r.name !== roleName);
+        setRolesCatalog(nextCatalog);
+        localStorage.setItem('etrr_teacher_roles_catalog', JSON.stringify(nextCatalog));
+
+        try {
+            const { error } = await supabase
+                .from('teacher_roles_catalog')
+                .delete()
+                .or(`id.eq.${roleId},name.eq.${roleName}`);
+            if (error) throw error;
+        } catch (e) {
+            console.error("DB Error deleting role:", e);
         }
     };
 
@@ -357,7 +417,7 @@ export default function TeacherManagement({ onViewTeacher }) {
                                 : 'text-secondary hover:text-[var(--text-primary)]'
                         }`}
                     >
-                        Seguimiento y Clasificación Interna
+                        Evaluación Docente
                         {currentSubTab === 'followup' && (
                             <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full shadow-[0_0_8px_var(--color-primary)]"></span>
                         )}
@@ -667,6 +727,10 @@ export default function TeacherManagement({ onViewTeacher }) {
                     coordinators={coordinators}
                     followups={followups}
                     onUpdateFollowup={handleUpdateFollowup}
+                    rolesCatalog={rolesCatalog}
+                    onAddRoleCatalog={handleAddRoleCatalog}
+                    onDeleteRoleCatalog={handleDeleteRoleCatalog}
+                    onViewTeacher={onViewTeacher}
                 />
             )}
 

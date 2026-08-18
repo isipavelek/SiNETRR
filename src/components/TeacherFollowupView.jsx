@@ -1,16 +1,33 @@
 import { useState, useMemo } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { 
     Search, User, Plus, Trash2, CheckCircle2, AlertTriangle, 
-    CheckSquare, Square, Filter, ArrowUpDown, Info, ThumbsUp, Save
+    CheckSquare, Square, Filter, ArrowUpDown, Info, ThumbsUp, Save,
+    Settings, X, ExternalLink
 } from 'lucide-react';
 
-export default function TeacherFollowupView({ teachers, coordinators, followups, onUpdateFollowup }) {
+export default function TeacherFollowupView({ 
+    teachers, 
+    coordinators, 
+    followups, 
+    onUpdateFollowup,
+    rolesCatalog = [],
+    onAddRoleCatalog,
+    onDeleteRoleCatalog,
+    onViewTeacher
+}) {
+    const { userProfile } = useAuth();
+    
+    // Filters and sorting states
     const [filterCoordinator, setFilterCoordinator] = useState('all');
     const [filterClassification, setFilterClassification] = useState('all');
     const [filterStatus, setFilterStatus] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
-    const [sortField, setSortField] = useState('name'); // 'name', 'status', 'checklist'
-    const [sortDirection, setSortDirection] = useState('asc'); // 'asc', 'desc'
+    const [sortField, setSortField] = useState('my-coordinados'); // 'my-coordinados', 'name', 'classification-asc', 'classification-desc', 'checklist'
+
+    // Role Catalog Management state
+    const [isManageRolesOpen, setIsManageRolesOpen] = useState(false);
+    const [newRoleName, setNewRoleName] = useState('');
 
     // Local inputs for adding checklist items per teacher
     const [newItemTexts, setNewItemTexts] = useState({});
@@ -22,7 +39,7 @@ export default function TeacherFollowupView({ teachers, coordinators, followups,
         const found = followups.find(f => f.teacher_id === teacherId);
         return found || {
             teacher_id: teacherId,
-            classification: 'SPOT',
+            classification: rolesCatalog[0]?.name || 'SPOT',
             performance_status: 'Conforme',
             notes: '',
             checklist: []
@@ -89,6 +106,19 @@ export default function TeacherFollowupView({ teachers, coordinators, followups,
         }
     };
 
+    // Add role catalog action
+    const handleCreateCatalogRole = (e) => {
+        e.preventDefault();
+        const role = newRoleName.trim();
+        if (!role) return;
+        if (rolesCatalog.some(r => r.name.toLowerCase() === role.toLowerCase())) {
+            alert('Esta clasificación ya existe.');
+            return;
+        }
+        onAddRoleCatalog(role);
+        setNewRoleName('');
+    };
+
     // Filtering & Sorting
     const filteredTeachers = useMemo(() => {
         return teachers.filter(t => {
@@ -117,67 +147,71 @@ export default function TeacherFollowupView({ teachers, coordinators, followups,
 
             return true;
         });
-    }, [teachers, followups, searchTerm, filterCoordinator, filterClassification, filterStatus]);
+    }, [teachers, followups, searchTerm, filterCoordinator, filterClassification, filterStatus, rolesCatalog]);
 
     const sortedTeachers = useMemo(() => {
         return [...filteredTeachers].sort((a, b) => {
             const fA = getFollowup(a.id);
             const fB = getFollowup(b.id);
-            let valA, valB;
+            const isCoordA = a.coordinator_id === userProfile?.id;
+            const isCoordB = b.coordinator_id === userProfile?.id;
 
             switch (sortField) {
+                case 'my-coordinados':
+                    // Boolean sort: Coordinated by me first
+                    if (isCoordA && !isCoordB) return -1;
+                    if (!isCoordA && isCoordB) return 1;
+                    // Secondary sort by name
+                    return `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`);
+                
                 case 'name':
-                    valA = `${a.last_name} ${a.first_name}`.toLowerCase();
-                    valB = `${b.last_name} ${b.first_name}`.toLowerCase();
-                    break;
-                case 'status':
-                    // Put "Acciones para mejorar" first or "Conforme" first
-                    valA = fA.performance_status;
-                    valB = fB.performance_status;
-                    break;
+                    return `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`);
+                
+                case 'classification-asc':
+                    return fA.classification.localeCompare(fB.classification);
+                
+                case 'classification-desc':
+                    return fB.classification.localeCompare(fA.classification);
+
                 case 'checklist': {
-                    // Sort by completion percentage
                     const totalA = fA.checklist?.length || 0;
                     const completedA = fA.checklist?.filter(item => item.completed).length || 0;
-                    valA = totalA > 0 ? (completedA / totalA) : -1; // -1 for no items so they can be sent to bottom or top
+                    const valA = totalA > 0 ? (completedA / totalA) : -1;
 
                     const totalB = fB.checklist?.length || 0;
                     const completedB = fB.checklist?.filter(item => item.completed).length || 0;
-                    valB = totalB > 0 ? (completedB / totalB) : -1;
-                    break;
+                    const valB = totalB > 0 ? (completedB / totalB) : -1;
+                    
+                    return valB - valA; // highest completion first
                 }
                 default:
-                    valA = a.last_name;
-                    valB = b.last_name;
+                    return 0;
             }
-
-            if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
-            if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-            return 0;
         });
-    }, [filteredTeachers, followups, sortField, sortDirection]);
-
-    const handleSort = (field) => {
-        if (sortField === field) {
-            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortField(field);
-            setSortDirection('asc');
-        }
-    };
+    }, [filteredTeachers, followups, sortField, userProfile, rolesCatalog]);
 
     return (
         <div className="space-y-6">
             {/* Filter Toolbar */}
             <div className="glass-card p-5 border border-color/40 shadow-md">
-                <div className="flex justify-between items-center mb-4 pb-2 border-b border-color/30">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 pb-2 border-b border-color/30">
                     <h3 className="text-sm font-bold text-tertiary uppercase tracking-wider flex items-center gap-2">
                         <Filter size={16} className="text-primary" />
-                        Filtros de Seguimiento Interno
+                        Filtros de Evaluación
                     </h3>
-                    <span className="text-xs font-semibold text-secondary">
-                        {sortedTeachers.length} de {teachers.length} docentes
-                    </span>
+                    <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                        <button
+                            type="button"
+                            onClick={() => setIsManageRolesOpen(true)}
+                            className="btn bg-surface-hover/80 border border-color/60 hover:bg-surface text-secondary hover:text-[var(--text-primary)] text-xs font-bold py-1.5 px-3 rounded-lg flex items-center gap-1.5 shadow-sm transition-all"
+                        >
+                            <Settings size={14} className="text-primary" />
+                            <span>Gestionar Clasificaciones</span>
+                        </button>
+                        <span className="text-xs font-semibold text-secondary">
+                            {sortedTeachers.length} de {teachers.length} docentes
+                        </span>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
@@ -202,7 +236,7 @@ export default function TeacherFollowupView({ teachers, coordinators, followups,
                         <select
                             value={filterCoordinator}
                             onChange={(e) => setFilterCoordinator(e.target.value)}
-                            className="bg-main border border-color rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-primary outline-none cursor-pointer"
+                            className="bg-main border border-color rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-primary w-full outline-none cursor-pointer"
                         >
                             <option value="all">Todos los Coordinadores</option>
                             {coordinators.map(coord => (
@@ -215,26 +249,28 @@ export default function TeacherFollowupView({ teachers, coordinators, followups,
 
                     {/* Filter by Classification */}
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-bold text-secondary">Clasificación</label>
+                        <label className="text-xs font-bold text-secondary">Clasificación Docente</label>
                         <select
                             value={filterClassification}
                             onChange={(e) => setFilterClassification(e.target.value)}
-                            className="bg-main border border-color rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-primary outline-none cursor-pointer"
+                            className="bg-main border border-color rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-primary w-full outline-none cursor-pointer"
                         >
-                            <option value="all">Todas las Categorías</option>
-                            <option value="SPOT">SPOT</option>
-                            <option value="FULL TIME">FULL TIME</option>
-                            <option value="ESPECIALISTA">ESPECIALISTA</option>
+                            <option value="all">Todas las Clasificaciones</option>
+                            {rolesCatalog.map(role => (
+                                <option key={role.id || role.name} value={role.name}>
+                                    {role.name}
+                                </option>
+                            ))}
                         </select>
                     </div>
 
                     {/* Filter by Performance Status */}
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-bold text-secondary">Estado Desempeño</label>
+                        <label className="text-xs font-bold text-secondary">Estado de Desempeño</label>
                         <select
                             value={filterStatus}
                             onChange={(e) => setFilterStatus(e.target.value)}
-                            className="bg-main border border-color rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-primary outline-none cursor-pointer"
+                            className="bg-main border border-color rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-primary w-full outline-none cursor-pointer"
                         >
                             <option value="all">Todos los Estados</option>
                             <option value="Conforme">Conforme</option>
@@ -249,22 +285,28 @@ export default function TeacherFollowupView({ teachers, coordinators, followups,
                         <ArrowUpDown size={12} /> Ordenar por:
                     </span>
                     <button 
-                        onClick={() => handleSort('name')}
-                        className={`px-3 py-1.5 rounded-lg border transition-all ${sortField === 'name' ? 'bg-primary/15 border-primary/30 text-primary' : 'border-color/60 hover:bg-surface-hover'}`}
+                        onClick={() => setSortField('my-coordinados')}
+                        className={`px-3 py-1.5 rounded-lg border transition-all ${sortField === 'my-coordinados' ? 'bg-primary/15 border-primary/30 text-primary font-black' : 'border-color/60 hover:bg-surface-hover'}`}
                     >
-                        Nombre {sortField === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
+                        Mis Coordinados Primero
                     </button>
                     <button 
-                        onClick={() => handleSort('status')}
-                        className={`px-3 py-1.5 rounded-lg border transition-all ${sortField === 'status' ? 'bg-primary/15 border-primary/30 text-primary' : 'border-color/60 hover:bg-surface-hover'}`}
+                        onClick={() => setSortField('name')}
+                        className={`px-3 py-1.5 rounded-lg border transition-all ${sortField === 'name' ? 'bg-primary/15 border-primary/30 text-primary font-black' : 'border-color/60 hover:bg-surface-hover'}`}
                     >
-                        Acciones Pendientes {sortField === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
+                        Nombre
                     </button>
                     <button 
-                        onClick={() => handleSort('checklist')}
-                        className={`px-3 py-1.5 rounded-lg border transition-all ${sortField === 'checklist' ? 'bg-primary/15 border-primary/30 text-primary' : 'border-color/60 hover:bg-surface-hover'}`}
+                        onClick={() => setSortField(sortField === 'classification-asc' ? 'classification-desc' : 'classification-asc')}
+                        className={`px-3 py-1.5 rounded-lg border transition-all ${sortField.startsWith('classification') ? 'bg-primary/15 border-primary/30 text-primary font-black' : 'border-color/60 hover:bg-surface-hover'}`}
                     >
-                        Avance de Checklist {sortField === 'checklist' && (sortDirection === 'asc' ? '↑' : '↓')}
+                        Clasificación {sortField === 'classification-asc' ? '↑' : sortField === 'classification-desc' ? '↓' : ''}
+                    </button>
+                    <button 
+                        onClick={() => setSortField('checklist')}
+                        className={`px-3 py-1.5 rounded-lg border transition-all ${sortField === 'checklist' ? 'bg-primary/15 border-primary/30 text-primary font-black' : 'border-color/60 hover:bg-surface-hover'}`}
+                    >
+                        Avance Checklist
                     </button>
                 </div>
             </div>
@@ -274,6 +316,7 @@ export default function TeacherFollowupView({ teachers, coordinators, followups,
                 {sortedTeachers.map(teacher => {
                     const fup = getFollowup(teacher.id);
                     const coord = coordinators.find(c => c.id === teacher.coordinator_id);
+                    const isMyCoordinated = teacher.coordinator_id === userProfile?.id;
                     
                     const totalChecklist = fup.checklist?.length || 0;
                     const completedChecklist = fup.checklist?.filter(item => item.completed).length || 0;
@@ -287,8 +330,8 @@ export default function TeacherFollowupView({ teachers, coordinators, followups,
                             {/* Card Background Decorator */}
                             <div className={`absolute top-0 right-0 w-36 h-36 rounded-full blur-3xl -mr-12 -mt-12 pointer-events-none transition-all ${
                                 fup.performance_status === 'Acciones para mejorar' 
-                                    ? 'bg-warning/15' 
-                                    : 'bg-success/15'
+                                    ? 'bg-warning/10' 
+                                    : 'bg-success/10'
                             }`}></div>
 
                             {/* Card Content */}
@@ -299,49 +342,54 @@ export default function TeacherFollowupView({ teachers, coordinators, followups,
                                         <img 
                                             src={teacher.photo_url} 
                                             alt={`${teacher.first_name} ${teacher.last_name}`} 
-                                            className="w-11 h-11 rounded-full object-cover border border-primary/10 shadow-inner" 
+                                            className="w-11 h-11 rounded-full object-cover border border-primary/10 shadow-inner shrink-0" 
                                         />
                                     ) : (
-                                        <div className="w-11 h-11 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold shadow-inner">
+                                        <div className="w-11 h-11 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold shadow-inner shrink-0">
                                             {teacher.first_name?.[0]}{teacher.last_name?.[0]}
                                         </div>
                                     )}
                                     <div className="min-w-0 flex-1">
-                                        <h4 className="font-extrabold text-[var(--text-primary)] text-base truncate leading-tight">
+                                        <h4 
+                                            onClick={() => onViewTeacher(teacher.id)}
+                                            className="font-extrabold text-[var(--text-primary)] text-base truncate leading-tight hover:text-primary transition-colors cursor-pointer flex items-center gap-1.5"
+                                        >
                                             {teacher.last_name}, {teacher.first_name}
+                                            <ExternalLink size={12} className="text-tertiary" />
                                         </h4>
-                                        <p className="text-[11px] text-tertiary font-semibold truncate mt-0.5">
-                                            Coordinador: <span className="text-secondary">{coord ? `${coord.first_name} ${coord.last_name}` : 'Sin asignar'}</span>
-                                        </p>
+                                        <div className="flex items-center gap-2 mt-0.5 min-w-0">
+                                            <p className="text-[11px] text-tertiary font-semibold truncate">
+                                                Coordinador: <span className="text-secondary">{coord ? `${coord.first_name} ${coord.last_name}` : 'Sin asignar'}</span>
+                                            </p>
+                                            {isMyCoordinated && (
+                                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-accent/20 text-accent border border-accent/30 shrink-0">
+                                                    Mi Coor.
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Category Selector (SPOT, FULL TIME, ESPECIALISTA) */}
+                                {/* Custom Role/Classification dropdown */}
                                 <div className="space-y-1.5 mb-4 relative z-10">
-                                    <label className="text-[10px] font-black text-tertiary uppercase tracking-widest block">Clasificación General</label>
-                                    <div className="grid grid-cols-3 gap-1.5 bg-main/40 border border-color/40 rounded-xl p-1 shadow-inner">
-                                        {['SPOT', 'FULL TIME', 'ESPECIALISTA'].map(cat => {
-                                            const isActive = fup.classification === cat;
-                                            let activeStyle = '';
-                                            if (isActive) {
-                                                if (cat === 'SPOT') activeStyle = 'bg-cyan-500/10 text-cyan-600 border-cyan-500/30 dark:text-cyan-400 font-extrabold shadow-sm';
-                                                else if (cat === 'FULL TIME') activeStyle = 'bg-success/10 text-success border-success/30 font-extrabold shadow-sm';
-                                                else activeStyle = 'bg-purple-500/10 text-purple-600 border-purple-500/30 dark:text-purple-400 font-extrabold shadow-sm';
-                                            } else {
-                                                activeStyle = 'text-tertiary hover:text-secondary border-transparent';
-                                            }
-
-                                            return (
-                                                <button
-                                                    key={cat}
-                                                    type="button"
-                                                    onClick={() => handleFieldChange(teacher.id, 'classification', cat)}
-                                                    className={`py-1.5 text-[9px] font-bold rounded-lg border text-center transition-all ${activeStyle}`}
-                                                >
-                                                    {cat}
-                                                </button>
-                                            );
-                                        })}
+                                    <label className="text-[10px] font-black text-tertiary uppercase tracking-widest block">Clasificación Docente</label>
+                                    <div className="relative">
+                                        <select
+                                            value={fup.classification}
+                                            onChange={(e) => handleFieldChange(teacher.id, 'classification', e.target.value)}
+                                            className="bg-main border border-color/40 text-[var(--text-primary)] text-xs font-bold rounded-xl px-3.5 py-2 w-full outline-none focus:ring-1 focus:ring-primary cursor-pointer appearance-none"
+                                        >
+                                            {rolesCatalog.map(role => (
+                                                <option key={role.id || role.name} value={role.name}>
+                                                    {role.name}
+                                                </option>
+                                            ))}
+                                            {/* Fallback if current assigned role is not in the catalog */}
+                                            {fup.classification && !rolesCatalog.some(r => r.name === fup.classification) && (
+                                                <option value={fup.classification}>{fup.classification}</option>
+                                            )}
+                                        </select>
+                                        <div className="absolute right-3.5 top-3 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-t-4 border-t-secondary pointer-events-none"></div>
                                     </div>
                                 </div>
 
@@ -488,6 +536,17 @@ export default function TeacherFollowupView({ teachers, coordinators, followups,
                                     </div>
                                 </div>
                             </div>
+
+                            {/* View Profile direct button */}
+                            <div className="mt-5 pt-3 border-t border-color/20 flex gap-2">
+                                <button
+                                    onClick={() => onViewTeacher(teacher.id)}
+                                    className="w-full py-2.5 rounded-xl text-xs font-bold text-white bg-primary hover:bg-primary-hover shadow-md flex items-center justify-center gap-1.5 transition-all group/btn"
+                                >
+                                    <span>Ver Perfil Completo</span>
+                                    <ExternalLink size={13} className="group-hover/btn:translate-x-0.5 transition-transform" />
+                                </button>
+                            </div>
                         </div>
                     );
                 })}
@@ -506,6 +565,91 @@ export default function TeacherFollowupView({ teachers, coordinators, followups,
                     </div>
                 )}
             </div>
+
+            {/* Modal de Gestión de Clasificaciones (Roles) */}
+            {isManageRolesOpen && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex justify-center items-center p-4 animate-fade-in-up">
+                    <div className="bg-surface border border-color rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative">
+                        {/* Header */}
+                        <div className="flex justify-between items-center p-5 border-b border-color/50 bg-surface-hover/30">
+                            <h3 className="font-bold text-lg text-[var(--text-primary)] flex items-center gap-2">
+                                <Settings size={18} className="text-primary" />
+                                Gestionar Clasificaciones
+                            </h3>
+                            <button 
+                                onClick={() => setIsManageRolesOpen(false)} 
+                                className="text-secondary hover:text-[var(--text-primary)] transition-colors p-1 rounded-lg hover:bg-surface-hover"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-5 space-y-4">
+                            {/* Add Role Form */}
+                            <form onSubmit={handleCreateCatalogRole} className="flex gap-2">
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="Nueva clasificación (ej. Part Time)..."
+                                    value={newRoleName}
+                                    onChange={(e) => setNewRoleName(e.target.value)}
+                                    className="bg-main border border-color text-sm text-[var(--text-primary)] rounded-xl px-3 py-2 flex-grow outline-none focus:ring-1 focus:ring-primary"
+                                />
+                                <button
+                                    type="submit"
+                                    className="btn btn-primary px-4 py-2 text-sm font-bold flex items-center gap-1.5 shadow-md shrink-0"
+                                >
+                                    <Plus size={16} />
+                                    <span>Agregar</span>
+                                </button>
+                            </form>
+
+                            {/* Roles List */}
+                            <div className="space-y-2 max-h-60 overflow-y-auto pr-1.5 custom-scrollbar">
+                                <label className="text-[10px] font-black text-tertiary uppercase tracking-widest block mb-1">Roles Escolares Registrados</label>
+                                {rolesCatalog.length === 0 ? (
+                                    <p className="text-tertiary text-xs italic py-2">No hay clasificaciones registradas.</p>
+                                ) : (
+                                    rolesCatalog.map(role => (
+                                        <div 
+                                            key={role.id || role.name}
+                                            className="flex items-center justify-between p-2.5 bg-main/40 border border-color/30 rounded-xl hover:bg-main/60 transition-colors"
+                                        >
+                                            <span className="text-sm font-bold text-[var(--text-primary)]">
+                                                {role.name}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (confirm(`¿Estás seguro que deseas eliminar la clasificación "${role.name}"? Los docentes con este rol mantendrán el texto pero el rol se removerá del catálogo.`)) {
+                                                        onDeleteRoleCatalog(role.id, role.name);
+                                                    }
+                                                }}
+                                                className="text-tertiary hover:text-error transition-colors p-1 rounded-lg hover:bg-error/10 shrink-0"
+                                                title="Eliminar del catálogo"
+                                            >
+                                                <Trash2 size={15} />
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 border-t border-color/45 bg-surface-hover/20 flex justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setIsManageRolesOpen(false)}
+                                className="px-4 py-2 rounded-xl text-xs font-bold text-secondary bg-surface-hover border border-color hover:text-[var(--text-primary)] transition-all shadow-sm"
+                            >
+                                Cerrar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

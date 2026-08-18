@@ -26,6 +26,7 @@ export default function TeacherProfile({ teacherId, onBack, onSelectSubject }) {
     const { role, userProfile, refreshProfile } = useAuth();
     const [subjects, setSubjects] = useState([]);
     const [evaluations, setEvaluations] = useState([]);
+    const [coordinationComments, setCoordinationComments] = useState([]);
     const [activities, setActivities] = useState([]);
     const [catalog, setCatalog] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -138,6 +139,22 @@ export default function TeacherProfile({ teacherId, onBack, onSelectSubject }) {
                 .eq('teacher_id', targetId)
                 .order('year', { ascending: false });
 
+            // Fetch coordination comments/evaluations
+            let commentsData = [];
+            try {
+                const { data, error } = await supabase
+                    .from('teacher_evaluations_comments')
+                    .select('*, evaluator:coordinator_id(first_name, last_name)')
+                    .eq('teacher_id', targetId)
+                    .order('created_at', { ascending: false });
+                if (error) throw error;
+                commentsData = data || [];
+            } catch (err) {
+                console.warn("Falla al cargar comentarios de evaluación de Supabase, usando localStorage de respaldo:", err);
+                const local = localStorage.getItem(`etrr_teacher_comments_${targetId}`);
+                commentsData = local ? JSON.parse(local) : [];
+            }
+
             const { data: acts } = await supabase
                 .from('teacher_activities')
                 .select('*, activities_catalog(name)')
@@ -155,12 +172,77 @@ export default function TeacherProfile({ teacherId, onBack, onSelectSubject }) {
 
             setSubjects(subs || []);
             setEvaluations(evals || []);
+            setCoordinationComments(commentsData || []);
             setActivities(acts || []);
             setCatalog(cat || []);
         } catch (err) {
             console.error(err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSaveComment = async (commentText, visibleToTeacher) => {
+        const cleanText = commentText.trim();
+        if (!cleanText) return;
+
+        const newComment = {
+            id: `comment-${Date.now()}`,
+            teacher_id: targetId,
+            coordinator_id: userProfile?.id,
+            comment: cleanText,
+            visible_to_teacher: visibleToTeacher,
+            created_at: new Date().toISOString(),
+            evaluator: {
+                first_name: userProfile?.first_name || 'Coordinador',
+                last_name: userProfile?.last_name || ''
+            }
+        };
+
+        const nextComments = [newComment, ...coordinationComments];
+        setCoordinationComments(nextComments);
+        localStorage.setItem(`etrr_teacher_comments_${targetId}`, JSON.stringify(nextComments));
+
+        try {
+            const { error } = await supabase
+                .from('teacher_evaluations_comments')
+                .insert([{
+                    teacher_id: targetId,
+                    coordinator_id: userProfile?.id,
+                    comment: cleanText,
+                    visible_to_teacher: visibleToTeacher
+                }]);
+            if (error) throw error;
+            
+            const { data } = await supabase
+                .from('teacher_evaluations_comments')
+                .select('*, evaluator:coordinator_id(first_name, last_name)')
+                .eq('teacher_id', targetId)
+                .order('created_at', { ascending: false });
+            if (data) {
+                setCoordinationComments(data);
+                localStorage.setItem(`etrr_teacher_comments_${targetId}`, JSON.stringify(data));
+            }
+        } catch (err) {
+            console.error("DB Error saving comment:", err);
+        }
+    };
+
+    const handleDeleteComment = async (commentId) => {
+        if (!confirm("¿Estás seguro que deseas eliminar este comentario?")) return;
+
+        const nextComments = coordinationComments.filter(c => c.id !== commentId);
+        setCoordinationComments(nextComments);
+        localStorage.setItem(`etrr_teacher_comments_${targetId}`, JSON.stringify(nextComments));
+
+        try {
+            const { error } = await supabase
+                .from('teacher_evaluations_comments')
+                .delete()
+                .eq('id', commentId);
+            if (error) throw error;
+        } catch (err) {
+            console.error("DB Error deleting comment:", err);
         }
     };
 
@@ -490,8 +572,107 @@ export default function TeacherProfile({ teacherId, onBack, onSelectSubject }) {
                             </div>
                         )}
                     </div>
-                </section>
             </div>
+
+            {/* Comentarios y Evaluaciones de Coordinación */}
+            {(role === 'coordinador' || role === 'gerente' || coordinationComments.some(c => c.visible_to_teacher)) && (
+                <section className="glass-card flex flex-col shadow-sm mt-8">
+                    <div className="p-6 border-b border-color/40 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-primary/10 rounded-xl text-primary border border-primary/20 shadow-inner">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            </div>
+                            <h3 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">
+                                {(role === 'coordinador' || role === 'gerente') ? 'Evaluaciones y Comentarios de Coordinación' : 'Feedback de Coordinación'}
+                            </h3>
+                        </div>
+                        <span className="text-xs font-bold bg-primary/10 text-primary px-2.5 py-1 rounded-lg border border-primary/20">
+                            {((role === 'coordinador' || role === 'gerente') 
+                                ? coordinationComments 
+                                : coordinationComments.filter(c => c.visible_to_teacher)
+                            ).length} Comentarios
+                        </span>
+                    </div>
+
+                    <div className="p-6 flex flex-col md:flex-row gap-6">
+                        {/* Comments List */}
+                        <div className="flex-1 space-y-4">
+                            {((role === 'coordinador' || role === 'gerente') 
+                                ? coordinationComments 
+                                : coordinationComments.filter(c => c.visible_to_teacher)
+                            ).length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-10 text-center border border-dashed border-color/50 rounded-xl bg-main/30 h-full">
+                                    <p className="text-sm font-medium text-secondary">
+                                        No hay comentarios de coordinación disponibles.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {((role === 'coordinador' || role === 'gerente') 
+                                        ? coordinationComments 
+                                        : coordinationComments.filter(c => c.visible_to_teacher)
+                                    ).map(comm => (
+                                        <div 
+                                            key={comm.id} 
+                                            className={`p-4 rounded-xl border relative shadow-sm transition-colors ${
+                                                comm.visible_to_teacher 
+                                                    ? 'bg-success/5 border-success/30 hover:border-success/50' 
+                                                    : 'bg-main/30 border-color/40 hover:border-color-hover/40'
+                                            }`}
+                                        >
+                                            <div className="flex justify-between items-start mb-2 flex-wrap gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary text-[10px] font-bold border border-primary/30">
+                                                        {comm.evaluator?.first_name?.charAt(0) || 'C'}
+                                                    </div>
+                                                    <span className="text-xs text-secondary font-bold">
+                                                        {comm.evaluator ? `${comm.evaluator.first_name} ${comm.evaluator.last_name}` : 'Coordinador'}
+                                                    </span>
+                                                    <span className="text-[10px] text-tertiary font-mono">
+                                                        {new Date(comm.created_at).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+
+                                                {(role === 'coordinador' || role === 'gerente') && (
+                                                    <div className="flex items-center gap-2 ml-auto">
+                                                        <span className={`text-[9px] font-black px-2 py-0.5 rounded border uppercase ${
+                                                            comm.visible_to_teacher 
+                                                                ? 'bg-success/15 border-success/20 text-success' 
+                                                                : 'bg-secondary/15 border-color/40 text-tertiary'
+                                                        }`}>
+                                                            {comm.visible_to_teacher ? 'Público para docente' : 'Solo Coordinación'}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => handleDeleteComment(comm.id)}
+                                                            className="text-tertiary hover:text-error transition-colors p-0.5 rounded-lg hover:bg-error/10 shrink-0"
+                                                            title="Eliminar Comentario"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <p className="text-sm text-secondary leading-relaxed pl-1 whitespace-pre-line">
+                                                {comm.comment}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Comment Creation Form (Coordinators only) */}
+                        {(role === 'coordinador' || role === 'gerente') && (
+                            <div className="w-full md:w-[300px] bg-main/30 border border-color/40 p-4 rounded-xl flex flex-col h-fit shadow-inner shrink-0">
+                                <h4 className="font-bold text-sm text-[var(--text-primary)] mb-3 pb-2 border-b border-color/30">
+                                    Crear Comentario / Evaluación
+                                </h4>
+                                <CommentForm onSubmit={handleSaveComment} />
+                            </div>
+                        )}
+                    </div>
+                </section>
+            )}
 
             <AddSubjectModal
                 isOpen={isAddSubjectOpen}
@@ -597,5 +778,48 @@ export default function TeacherProfile({ teacherId, onBack, onSelectSubject }) {
                 className="hidden" 
             />
         </div>
+    );
+}
+
+function CommentForm({ onSubmit }) {
+    const [text, setText] = useState('');
+    const [visible, setVisible] = useState(false);
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        const clean = text.trim();
+        if (!clean) return;
+        onSubmit(clean, visible);
+        setText('');
+        setVisible(false);
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            <textarea
+                value={text}
+                onChange={e => setText(e.target.value)}
+                rows="4"
+                required
+                placeholder="Escribe comentarios, evoluciones o evaluaciones aquí..."
+                className="bg-surface border border-color/40 text-secondary placeholder:text-tertiary/70 text-xs focus:ring-1 focus:ring-primary w-full p-2.5 rounded-xl outline-none resize-none shadow-inner"
+            />
+            <label className="flex items-center gap-2 text-xs font-semibold text-secondary cursor-pointer select-none">
+                <input
+                    type="checkbox"
+                    checked={visible}
+                    onChange={e => setVisible(e.target.checked)}
+                    className="rounded border-color/50 text-primary focus:ring-primary/50 bg-surface"
+                />
+                <span>Hacer visible para el docente</span>
+            </label>
+            <button
+                type="submit"
+                className="btn btn-primary w-full py-2.5 text-xs font-bold shadow-md flex items-center justify-center gap-1.5 border-none cursor-pointer"
+            >
+                <Plus size={14} />
+                <span>Guardar Comentario</span>
+            </button>
+        </form>
     );
 }
