@@ -8,6 +8,7 @@ import AddTeacherModal from '../components/AddTeacherModal';
 import EditTeacherModal from '../components/EditTeacherModal';
 import AddSubjectModal from '../components/AddSubjectModal';
 import ActivityManagerModal from '../components/ActivityManagerModal';
+import TeacherFollowupView from '../components/TeacherFollowupView';
 
 const parseProfiles = (orientationStr) => {
     let profilesList = ['Docente'];
@@ -39,6 +40,11 @@ export default function TeacherManagement({ onViewTeacher }) {
     const [viewMode, setViewMode] = useState(() => localStorage.getItem('teachersViewMode') || 'list'); // 'grid' or 'list'
     const [sortField, setSortField] = useState('name');
     const [sortDirection, setSortDirection] = useState('asc');
+
+    // Internal follow-up states
+    const [currentSubTab, setCurrentSubTab] = useState('trajectory'); // 'trajectory' or 'followup'
+    const [followups, setFollowups] = useState([]);
+    const [coordinators, setCoordinators] = useState([]);
 
     useEffect(() => {
         localStorage.setItem('teachersViewMode', viewMode);
@@ -92,14 +98,73 @@ export default function TeacherManagement({ onViewTeacher }) {
 
             if (tActivitiesError) throw tActivitiesError;
 
+            // 5. Fetch Coordinators
+            const { data: roleData } = await supabase
+                .from('user_roles')
+                .select('id')
+                .eq('role_name', 'coordinador')
+                .single();
+
+            let coordinatorsData = [];
+            if (roleData) {
+                const { data } = await supabase
+                    .from('user_profiles')
+                    .select('id, first_name, last_name')
+                    .eq('role_id', roleData.id);
+                coordinatorsData = data || [];
+            }
+
+            // 6. Fetch Teacher Followups
+            let followupsData = [];
+            try {
+                const { data, error } = await supabase
+                    .from('teacher_followups')
+                    .select('*');
+                if (error) throw error;
+                followupsData = data || [];
+            } catch (err) {
+                console.warn('Falla al cargar teacher_followups desde base de datos, usando localStorage como respaldo:', err);
+                const local = localStorage.getItem('etrr_teacher_followups');
+                followupsData = local ? JSON.parse(local) : [];
+            }
+
             setTeachers(teachersData);
             setSubjects(subjectsData);
             setSubjectsCatalog(catalogData || []);
             setTeacherActivities(tActivitiesData || []);
+            setCoordinators(coordinatorsData);
+            setFollowups(followupsData);
         } catch (err) {
             console.error('Error fetching data:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleUpdateFollowup = async (updatedFup) => {
+        // Update state immediately for rapid feedback
+        setFollowups(prev => {
+            const index = prev.findIndex(f => f.teacher_id === updatedFup.teacher_id);
+            let next;
+            if (index > -1) {
+                next = [...prev];
+                next[index] = updatedFup;
+            } else {
+                next = [...prev, updatedFup];
+            }
+            // Always sync fallback to localStorage
+            localStorage.setItem('etrr_teacher_followups', JSON.stringify(next));
+            return next;
+        });
+
+        // Try persisting in Supabase
+        try {
+            const { error } = await supabase
+                .from('teacher_followups')
+                .upsert(updatedFup, { onConflict: 'teacher_id' });
+            if (error) throw error;
+        } catch (err) {
+            console.error('Error al guardar seguimiento en Supabase, persistido en localStorage de respaldo:', err);
         }
     };
 
@@ -236,15 +301,19 @@ export default function TeacherManagement({ onViewTeacher }) {
                     <p className="text-secondary font-medium">Monitoreo de trayectoria, cursos de seguridad y entregas de planificaciones.</p>
                 </div>
                 <div className="flex items-center gap-4 relative z-10 w-full md:w-auto flex-wrap md:flex-nowrap">
-                    <div className="flex bg-main/50 border border-color/50 rounded-xl p-1 shadow-inner shrink-0 hidden md:flex">
-                        <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-surface shadow text-primary' : 'text-secondary hover:text-[var(--text-primary)]'}`} title="Vista de Cuadrícula"><LayoutGrid size={18} /></button>
-                        <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-surface shadow text-primary' : 'text-secondary hover:text-[var(--text-primary)]'}`} title="Vista de Lista"><List size={18} /></button>
-                    </div>
+                    {currentSubTab === 'trajectory' && (
+                        <div className="flex bg-main/50 border border-color/50 rounded-xl p-1 shadow-inner shrink-0 hidden md:flex">
+                            <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-surface shadow text-primary' : 'text-secondary hover:text-[var(--text-primary)]'}`} title="Vista de Cuadrícula"><LayoutGrid size={18} /></button>
+                            <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-surface shadow text-primary' : 'text-secondary hover:text-[var(--text-primary)]'}`} title="Vista de Lista"><List size={18} /></button>
+                        </div>
+                    )}
                     {/* Filters Section (Moved down) */}
-                    <div className="flex bg-main/50 border border-color/50 rounded-xl p-1 shadow-inner shrink-0 md:hidden">
-                        <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-surface shadow text-primary' : 'text-secondary hover:text-[var(--text-primary)]'}`} title="Vista de Cuadrícula"><LayoutGrid size={18} /></button>
-                        <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-surface shadow text-primary' : 'text-secondary hover:text-[var(--text-primary)]'}`} title="Vista de Lista"><List size={18} /></button>
-                    </div>
+                    {currentSubTab === 'trajectory' && (
+                        <div className="flex bg-main/50 border border-color/50 rounded-xl p-1 shadow-inner shrink-0 md:hidden">
+                            <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-surface shadow text-primary' : 'text-secondary hover:text-[var(--text-primary)]'}`} title="Vista de Cuadrícula"><LayoutGrid size={18} /></button>
+                            <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-surface shadow text-primary' : 'text-secondary hover:text-[var(--text-primary)]'}`} title="Vista de Lista"><List size={18} /></button>
+                        </div>
+                    )}
                     {(role === 'coordinador' || role === 'gerente') && (
                         <button
                             onClick={() => setIsActivityManagerOpen(true)}
@@ -264,8 +333,40 @@ export default function TeacherManagement({ onViewTeacher }) {
                 </div>
             </div>
 
-            {/* Filters Section */}
+            {/* Sub-Tabs Navigation */}
             {(role === 'coordinador' || role === 'gerente') && (
+                <div className="flex border-b border-color/40 gap-6 px-1">
+                    <button
+                        onClick={() => setCurrentSubTab('trajectory')}
+                        className={`pb-3 text-sm font-bold transition-all relative ${
+                            currentSubTab === 'trajectory'
+                                ? 'text-primary'
+                                : 'text-secondary hover:text-[var(--text-primary)]'
+                        }`}
+                    >
+                        Monitoreo de Trayectoria
+                        {currentSubTab === 'trajectory' && (
+                            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full shadow-[0_0_8px_var(--color-primary)]"></span>
+                        )}
+                    </button>
+                    <button
+                        onClick={() => setCurrentSubTab('followup')}
+                        className={`pb-3 text-sm font-bold transition-all relative ${
+                            currentSubTab === 'followup'
+                                ? 'text-primary'
+                                : 'text-secondary hover:text-[var(--text-primary)]'
+                        }`}
+                    >
+                        Seguimiento y Clasificación Interna
+                        {currentSubTab === 'followup' && (
+                            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full shadow-[0_0_8px_var(--color-primary)]"></span>
+                        )}
+                    </button>
+                </div>
+            )}
+
+            {/* Filters Section */}
+            {currentSubTab === 'trajectory' && (role === 'coordinador' || role === 'gerente') && (
                 <div className="glass-card p-4 mx-2 md:mx-0">
                     <div className="flex justify-between items-center mb-3">
                         <h3 className="text-sm font-bold text-tertiary uppercase tracking-wider flex items-center gap-2">
@@ -308,7 +409,8 @@ export default function TeacherManagement({ onViewTeacher }) {
                 </div>
             )}
 
-            <div className={viewMode === 'grid' ? "grid grid-cols-1 lg:grid-cols-2 gap-8" : "flex flex-col gap-4 relative"}>
+            {currentSubTab === 'trajectory' ? (
+                <div className={viewMode === 'grid' ? "grid grid-cols-1 lg:grid-cols-2 gap-8" : "flex flex-col gap-4 relative"}>
                 {viewMode === 'list' && sortedTeachers.length > 0 && (
                     <div className="glass-card flex items-center justify-between p-3 px-5 gap-4 border-b-2 border-color bg-surface/80 backdrop-blur-md sticky top-0 z-20 shadow-sm rounded-none rounded-t-xl mb-[-8px]">
                         <div className="flex items-center gap-4 w-full sm:w-1/3 cursor-pointer group select-none" onClick={() => handleSort('name')}>
@@ -558,7 +660,15 @@ export default function TeacherManagement({ onViewTeacher }) {
                         <p className="text-secondary font-medium">No se encontraron docentes registrados para este filtro.</p>
                     </div>
                 )}
-            </div>
+                </div>
+            ) : (
+                <TeacherFollowupView
+                    teachers={teachers}
+                    coordinators={coordinators}
+                    followups={followups}
+                    onUpdateFollowup={handleUpdateFollowup}
+                />
+            )}
 
             {selectedTeacherForEval && (
                 <EvaluationsModal
